@@ -10,7 +10,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       req.body,
       {
         headers: {
-          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_API_KEY}`,
+          'x-api-key': `${process.env.NEXT_PUBLIC_API_KEY}`,
           'Content-Type': 'application/json'
         }
       }
