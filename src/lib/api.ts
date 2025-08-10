@@ -8,3 +8,12 @@ export const api = axios.create({
   },
   withCredentials: true // opcional, se o backend usar cookies de sessão
 })
+api.interceptors.response.use(
+  r => r,
+  err => {
+    const s = err?.response?.status;
+    const d = err?.response?.data;
+    console.error('[API ERROR]', err?.config?.method?.toUpperCase(), err?.config?.url, s, d);
+    return Promise.reject(err);
+  }
+);

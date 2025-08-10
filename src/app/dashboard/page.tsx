@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import Image from 'next/image'
 import axios from 'axios'
+import {api} from '@/lib/api'
 
 interface User {
   email: string
@@ -18,11 +19,13 @@ export default function DashboardPage() {
   const router = useRouter()
 
   useEffect(() => {
+    let mounted = true
     const fetchUserAndIframe = async () => {
       try {
         const { data: userData } = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/me`, {
           withCredentials: true,
         })
+        if (!mounted) return
         setUser(userData)
   
         const { data: iframeData } = await axios.post(
@@ -30,21 +33,24 @@ export default function DashboardPage() {
           { contractId: userData.contractId },
           { withCredentials: true }
         )
-  
+        if (!mounted) return
         setIframeUrl(iframeData.iframeUrl)
       } catch (error) {
         console.error('Erro ao carregar dados:', error)
         router.push('/')
+      }finally {
+        if (mounted) setLoading(false)
       }
     }
   
     fetchUserAndIframe()
+    return () => { mounted = false }
   }, [router])
   
 
   const handleLogout = async () => {
     setLoading(true)
-    await axios.post('/api/auth/logout')
+    await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/logout`)
     router.push('/')
   }
 
