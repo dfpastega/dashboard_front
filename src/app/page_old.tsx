@@ -12,10 +12,10 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { FaInfoCircle } from 'react-icons/fa'
+import { FcGoogle } from 'react-icons/fc'
+import { FaEye, FaEyeSlash, FaInfoCircle } from 'react-icons/fa'
 import { toast } from 'sonner'
 import axios from 'axios'
-import confetti from 'canvas-confetti'
 
 export default function Home() {
   const [email, setEmail] = useState('')
@@ -39,22 +39,11 @@ export default function Home() {
         { email, password },
         { withCredentials: true }
       )
-
       if (response.status === 200) {
-        // 🎉 Confete antes de redirecionar
-        confetti({
-          particleCount: 100,
-          spread: 70,
-          origin: { y: 0.6 },
-        })
-
-        // Aguardar um momento para a animação aparecer
-        setTimeout(() => {
-          router.push('/dashboard')
-        }, 1000)
+        router.push('/dashboard')
       }
     } catch (err: any) {
-      setError('🫠 Usuário ou senha inválidos.')
+      setError('Usuário ou senha inválidos.')
     } finally {
       setLoading(false)
     }
@@ -93,7 +82,7 @@ export default function Home() {
             <form onSubmit={handleLogin} className="space-y-4">
               <div className="space-y-2">
                 <label htmlFor="email" className="block text-sm font-medium">
-                👤 Usuário
+                  Usuário
                 </label>
                 <Input
                   id="email"
@@ -106,7 +95,7 @@ export default function Home() {
               </div>
               <div className="space-y-2">
                 <label htmlFor="password" className="block text-sm font-medium">
-                🔒 Senha
+                  Senha
                 </label>
                 <div className="relative">
                   <Input
@@ -122,23 +111,19 @@ export default function Home() {
                     type="button"
                     onClick={handleClickEye}
                     onDoubleClick={handleDoubleClickEye}
-                    className="absolute top-1/2 right-3 -translate-y-1/2 text-xl"
+                    className="absolute top-1/2 right-3 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                     tabIndex={-1}
                     title={permanentShow ? "Clique duplo para ocultar" : "Clique duplo para manter visível"}
                   >
-                    {showPassword ? '👀' : '🫣'}
+                    {showPassword ? <FaEyeSlash /> : <FaEye />}
                   </button>
                 </div>
               </div>
               {error && (
                 <p className="text-sm text-red-500">{error}</p>
               )}
-              <Button
-                type="submit"
-                className="w-full cursor-pointer"
-                disabled={loading}
-              >
-                {loading ? 'Entrando...' : "Let's go, ⚡ Storm!"}
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? 'Entrando...' : 'Continuar'}
               </Button>
 
               {/* Esqueci minha senha + Tooltip */}
@@ -158,6 +143,18 @@ export default function Home() {
                 </TooltipProvider>
               </div>
             </form>
+
+            {/* Botão do Google oculto */}
+            <div className="text-center text-sm text-muted-foreground">ou</div>
+            <Button
+              variant="outline"
+              className="hidden w-full flex items-center gap-2 justify-center"
+              type="button"
+              onClick={() => toast('Login com Google ainda não implementado.')}
+            >
+              <FcGoogle size={20} />
+              Entrar com Google
+            </Button>
           </CardContent>
         </Card>
       </div>
