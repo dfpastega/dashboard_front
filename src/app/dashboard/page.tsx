@@ -50,7 +50,7 @@ export default function DashboardPage() {
 
   const handleLogout = async () => {
     setLoading(true)
-    await axios.post('/api/auth/logout')
+    await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/logout`)
     router.push('/')
   }
 

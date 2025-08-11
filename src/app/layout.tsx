@@ -7,7 +7,13 @@ const inter = Inter({ subsets: ['latin'] })
 
 export const metadata = {
   title: 'Dashboard Storm',
-  description: 'Sistema com login e dashboard embedado do Metabase',
+  description: 'Sistema STORM',
+  icons: {
+    icon: [
+      { url: '/favicon.ico', sizes: 'any' }, // pega do /public
+    ],
+    shortcut: ['/favicon.ico'],
+  },
 }
 
 export default function RootLayout({
