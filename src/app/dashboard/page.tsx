@@ -49,9 +49,19 @@ export default function DashboardPage() {
   
 
   const handleLogout = async () => {
-    setLoading(true)
-    await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/logout`)
-    router.push('/')
+    try {
+      setLoading(true)
+      await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/auth/logout`,
+        {},
+        { withCredentials: true } // <- ESSENCIAL
+      )
+      router.push('/')
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
