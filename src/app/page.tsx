@@ -3,18 +3,11 @@
 import { useState, useRef } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
-import { FaInfoCircle } from 'react-icons/fa'
-import { toast } from 'sonner'
-import axios from 'axios'
+import { api } from '@/lib/api'
 import confetti from 'canvas-confetti'
 
 export default function Home() {
@@ -34,11 +27,7 @@ export default function Home() {
     setLoading(true)
 
     try {
-      const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/auth/login`,
-        { email, password },
-        { withCredentials: true }
-      )
+      const response = await api.post('/auth/login', { email, password })
 
       if (response.status === 200) {
         // 🎉 Confete antes de redirecionar
@@ -54,7 +43,13 @@ export default function Home() {
         }, 1000)
       }
     } catch (err: any) {
-      setError('🫠 Usuário ou senha inválidos.')
+      const errorData = err.response?.data
+
+      if (errorData?.isFirstAccess) {
+        router.push(`/first-access?email=${encodeURIComponent(email)}`)
+      } else {
+        setError('🫠 Usuário ou senha inválidos.')
+      }
     } finally {
       setLoading(false)
     }
@@ -141,21 +136,11 @@ export default function Home() {
                 {loading ? 'Entrando...' : "Let's go, ⚡ Storm!"}
               </Button>
 
-              {/* Esqueci minha senha + Tooltip */}
-              <div className="flex items-center justify-end mt-2 text-sm text-muted-foreground">
-                <span>Esqueci minha senha</span>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="ml-1 cursor-pointer text-primary">
-                        <FaInfoCircle />
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="max-w-xs text-sm">
-                      Se você esqueceu sua senha e precisa de uma senha nova, favor entrar em contato em: <strong>hello@stormeducation.com.br</strong>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+              {/* Esqueci minha senha */}
+              <div className="text-center mt-2">
+                <Link href="/forgot-password" className="text-sm text-blue-600 hover:underline cursor-pointer">
+                  Esqueci minha senha
+                </Link>
               </div>
             </form>
           </CardContent>
