@@ -41,7 +41,11 @@ export default function CuponsPage() {
   useEffect(() => {
     const fetchCoupons = async () => {
       try {
-        const { data } = await api.get('/partner/coupons')
+        // Primeiro buscar dados do usuário para pegar o ID
+        const { data: userData } = await api.get('/auth/me')
+
+        // Depois buscar os cupons do partner
+        const { data } = await api.get(`/users/partners/${userData.id}/coupons`)
         setCoupons(data.coupons || [])
       } catch (err: any) {
         setError(err.response?.data?.error || 'Erro ao carregar cupons')
