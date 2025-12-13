@@ -17,6 +17,7 @@ export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null)
   const [iframeUrl, setIframeUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string>('')
 
   useEffect(() => {
     let mounted = true
@@ -25,19 +26,44 @@ export default function DashboardPage() {
       try {
         // Buscar dados do usuário
         const { data: userData } = await api.get('/auth/me')
+        console.log('✅ Dados do usuário:', userData)
         if (!mounted) return
         setUser(userData)
 
         // Buscar URL do Metabase
         if (userData.contractId) {
-          const { data: iframeData } = await api.post('/metabase/iframe', {
-            contractId: userData.contractId
-          })
-          if (!mounted) return
-          setIframeUrl(iframeData.iframeUrl)
+          try {
+            console.log('📊 Solicitando iframe do Metabase para contractId:', userData.contractId)
+            const { data: iframeData } = await api.post('/api/metabase/iframe', {
+              contractId: userData.contractId
+            })
+            console.log('✅ URL do iframe recebida:', iframeData.iframeUrl)
+            console.log('🔍 Testando URL diretamente...')
+
+            // Testar se a URL funciona antes de setar no iframe
+            fetch(iframeData.iframeUrl, { mode: 'no-cors' })
+              .then(() => console.log('✅ URL acessível'))
+              .catch(err => console.error('❌ URL inacessível:', err))
+
+            if (!mounted) return
+            setIframeUrl(iframeData.iframeUrl)
+          } catch (metabaseError: any) {
+            console.error('❌ Erro ao carregar Metabase:', {
+              status: metabaseError.response?.status,
+              data: metabaseError.response?.data,
+              message: metabaseError.message
+            })
+            if (!mounted) return
+            const errorMsg = metabaseError.response?.data?.error || 'Dashboard temporariamente indisponível. Verifique as configurações de embedding no Metabase.'
+            setError(errorMsg)
+          }
+        } else {
+          console.log('⚠️ Usuário não possui contractId')
         }
-      } catch (error) {
-        console.error('Erro ao carregar dados:', error)
+      } catch (error: any) {
+        console.error('❌ Erro ao carregar dados do usuário:', error)
+        if (!mounted) return
+        setError('Erro ao carregar dados do usuário')
       } finally {
         if (mounted) setLoading(false)
       }
@@ -90,25 +116,23 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      {iframeUrl ? (
-        <Card className="overflow-hidden">
-          <CardContent className="p-0">
-            <iframe
-              src={iframeUrl}
-              className="w-full border-0"
-              style={{ height: 'calc(100vh - 280px)', minHeight: '600px' }}
-              title="Metabase Dashboard"
-            />
-          </CardContent>
-        </Card>
-      ) : (
-        <Card>
+      {error ? (
+        <Card className="border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950">
           <CardContent className="p-6">
-            <p className="text-sm text-muted-foreground">
-              Carregando visualizações...
-            </p>
+            <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
           </CardContent>
         </Card>
+      ) : iframeUrl ? (
+        <iframe
+          src={iframeUrl}
+          className="w-full border-0"
+          style={{ height: 'calc(100vh - 280px)', minHeight: '600px' }}
+          title="Metabase Dashboard"
+        />
+      ) : (
+        <div className="text-sm text-muted-foreground">
+          Carregando visualizações...
+        </div>
       )}
     </div>
   )

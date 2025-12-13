@@ -15,22 +15,14 @@ interface Coupon {
   isActive: boolean
   validFrom?: string
   validUntil?: string
-  share: {
-    id: string
-    canViewStats: boolean
-    canDeactivate: boolean
-    sharedAt: string
-    sharedByUser: {
-      id: string
-      name: string
-      email: string
-    }
-  }
-  statistics?: {
-    totalUses: number
-    currentUses: number
-    remainingUses?: number
-  }
+  maxUses?: number
+  currentUses?: number
+  minPurchaseAmount?: number
+  accessType: 'owner' | 'shared'
+  canViewStats?: boolean
+  canDeactivate?: boolean
+  sharedAt?: string
+  createdAt: string
 }
 
 export default function CuponsPage() {
@@ -43,13 +35,21 @@ export default function CuponsPage() {
       try {
         // Primeiro buscar dados do usuário para pegar o ID
         const { data: userData } = await api.get('/auth/me')
+        console.log('User data:', userData)
 
         // Depois buscar os cupons do partner
-        const { data } = await api.get(`/users/partners/${userData.id}/coupons`)
+        const { data } = await api.get(`/api/users/partners/${userData.id}/coupons`)
+        console.log('Coupons data:', data)
         setCoupons(data.coupons || [])
       } catch (err: any) {
-        setError(err.response?.data?.error || 'Erro ao carregar cupons')
-        console.error('Erro ao carregar cupons:', err)
+        console.error('Erro completo:', {
+          message: err.message,
+          status: err.response?.status,
+          statusText: err.response?.statusText,
+          data: err.response?.data,
+          url: err.config?.url
+        })
+        setError(err.response?.data?.error || err.response?.data?.message || 'Erro ao carregar cupons')
       } finally {
         setLoading(false)
       }
@@ -131,13 +131,13 @@ export default function CuponsPage() {
                   {formatDiscount(coupon.discountType, coupon.discountValue)}
                 </div>
 
-                {coupon.share.canViewStats && coupon.statistics && (
+                {(coupon.accessType === 'owner' || coupon.canViewStats) && (
                   <div className="rounded-lg bg-muted p-3">
                     <div className="flex items-center gap-2 text-sm">
                       <Users className="h-4 w-4" />
                       <span className="font-medium">
-                        Usos: {coupon.statistics.currentUses}
-                        {coupon.statistics.totalUses && ` / ${coupon.statistics.totalUses}`}
+                        Usos: {coupon.currentUses || 0}
+                        {coupon.maxUses && ` / ${coupon.maxUses}`}
                       </span>
                     </div>
                   </div>
@@ -160,11 +160,18 @@ export default function CuponsPage() {
                   </div>
                 )}
 
-                <div className="pt-3 border-t">
-                  <p className="text-xs text-muted-foreground">
-                    Compartilhado por {coupon.share.sharedByUser.name || coupon.share.sharedByUser.email}
-                  </p>
-                </div>
+                {coupon.accessType === 'shared' && (
+                  <div className="pt-3 border-t">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs text-muted-foreground">
+                        Cupom compartilhado
+                      </p>
+                      <Badge variant="outline" className="text-xs">
+                        {coupon.accessType === 'shared' ? 'Compartilhado' : 'Próprio'}
+                      </Badge>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           ))}

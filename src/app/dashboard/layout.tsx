@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Sidebar } from '@/components/dashboard/sidebar'
+import { Sidebar, MobileSidebar } from '@/components/dashboard/sidebar'
 import { Header } from '@/components/dashboard/header'
 import { api } from '@/lib/api'
 
@@ -59,7 +59,10 @@ export default function DashboardLayout({
       <Sidebar userRole={user.roleId} />
 
       <div className="flex flex-1 flex-col overflow-hidden">
-        <Header user={user} />
+        <Header
+          user={user}
+          mobileMenuButton={<MobileSidebar userRole={user.roleId} />}
+        />
 
         <main className="flex-1 overflow-y-auto bg-background p-6">
           {children}

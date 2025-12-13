@@ -14,7 +14,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Moon, Sun, LogOut, User, Menu } from 'lucide-react'
+import { Moon, Sun, LogOut, User } from 'lucide-react'
 import { api } from '@/lib/api'
 
 interface HeaderProps {
@@ -23,9 +23,10 @@ interface HeaderProps {
     name?: string
     roleId?: string
   }
+  mobileMenuButton?: React.ReactNode
 }
 
-export function Header({ user }: HeaderProps) {
+export function Header({ user, mobileMenuButton }: HeaderProps) {
   const router = useRouter()
   const { theme, setTheme } = useTheme()
   const [loading, setLoading] = useState(false)
@@ -68,6 +69,13 @@ export function Header({ user }: HeaderProps) {
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background px-6">
       <div className="flex items-center gap-4">
+        {/* Botão de menu mobile */}
+        {mobileMenuButton && (
+          <div className="lg:hidden">
+            {mobileMenuButton}
+          </div>
+        )}
+
         <Image
           src="/logo-storm.svg"
           alt="Storm Logo"

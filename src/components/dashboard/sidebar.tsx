@@ -5,14 +5,13 @@ import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Separator } from '@/components/ui/separator'
 import {
   LayoutDashboard,
   Ticket,
   Users,
   Settings,
   Menu,
-  X
+  ChevronLeft
 } from 'lucide-react'
 import { useState } from 'react'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
@@ -56,7 +55,11 @@ const navigation: NavItem[] = [
   }
 ]
 
-function SidebarContent({ userRole }: { userRole: string }) {
+function SidebarContent({ userRole, isCollapsed, onToggle }: {
+  userRole: string
+  isCollapsed?: boolean
+  onToggle?: () => void
+}) {
   const pathname = usePathname()
 
   const filteredNav = navigation.filter(item =>
@@ -65,11 +68,36 @@ function SidebarContent({ userRole }: { userRole: string }) {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="p-6">
-        <h2 className="text-lg font-semibold">Menu</h2>
+      {/* Header com mesma altura do header principal (h-16) */}
+      <div className="flex items-center justify-between h-16 px-4 border-b">
+        {!isCollapsed ? (
+          <>
+            <h2 className="text-lg font-semibold">Menu</h2>
+            {onToggle && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onToggle}
+                className="h-8 w-8"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+            )}
+          </>
+        ) : (
+          onToggle && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onToggle}
+              className="h-8 w-8 mx-auto"
+              title="Expandir menu"
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
+          )
+        )}
       </div>
-
-      <Separator />
 
       <ScrollArea className="flex-1 px-3 py-4">
         <nav className="space-y-2">
@@ -82,12 +110,14 @@ function SidebarContent({ userRole }: { userRole: string }) {
                 <Button
                   variant={isActive ? 'secondary' : 'ghost'}
                   className={cn(
-                    'w-full justify-start gap-3',
+                    'w-full gap-3',
+                    isCollapsed ? 'justify-center px-2' : 'justify-start',
                     isActive && 'bg-secondary'
                   )}
+                  title={isCollapsed ? item.title : undefined}
                 >
-                  <Icon className="h-4 w-4" />
-                  {item.title}
+                  <Icon className="h-4 w-4 flex-shrink-0" />
+                  {!isCollapsed && <span>{item.title}</span>}
                 </Button>
               </Link>
             )
@@ -99,31 +129,40 @@ function SidebarContent({ userRole }: { userRole: string }) {
 }
 
 export function Sidebar({ userRole, className }: SidebarProps) {
-  const [open, setOpen] = useState(false)
+  const [desktopCollapsed, setDesktopCollapsed] = useState(false)
 
   return (
-    <>
-      {/* Mobile Sidebar */}
-      <Sheet open={open} onOpenChange={setOpen}>
-        <SheetTrigger asChild className="lg:hidden">
-          <Button variant="ghost" size="icon" className="fixed top-4 left-4 z-40">
-            <Menu className="h-5 w-5" />
-          </Button>
-        </SheetTrigger>
-        <SheetContent side="left" className="p-0 w-64">
-          <SidebarContent userRole={userRole} />
-        </SheetContent>
-      </Sheet>
+    <aside
+      className={cn(
+        'hidden lg:flex flex-col border-r bg-background transition-all duration-300',
+        desktopCollapsed ? 'w-16' : 'w-64',
+        className
+      )}
+    >
+      <SidebarContent
+        userRole={userRole}
+        isCollapsed={desktopCollapsed}
+        onToggle={() => setDesktopCollapsed(!desktopCollapsed)}
+      />
+    </aside>
+  )
+}
 
-      {/* Desktop Sidebar */}
-      <aside
-        className={cn(
-          'hidden lg:flex flex-col w-64 border-r bg-background',
-          className
-        )}
-      >
+// Componente separado para o menu mobile
+export function MobileSidebar({ userRole }: { userRole: string }) {
+  const [mobileOpen, setMobileOpen] = useState(false)
+
+  return (
+    <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+      <SheetTrigger asChild>
+        <Button variant="ghost" size="icon">
+          <Menu className="h-5 w-5" />
+          <span className="sr-only">Abrir menu</span>
+        </Button>
+      </SheetTrigger>
+      <SheetContent side="left" className="p-0 w-64">
         <SidebarContent userRole={userRole} />
-      </aside>
-    </>
+      </SheetContent>
+    </Sheet>
   )
 }
