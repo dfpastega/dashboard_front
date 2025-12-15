@@ -11,7 +11,9 @@ import {
   Users,
   Settings,
   Menu,
-  ChevronLeft
+  ChevronLeft,
+  Shield,
+  TicketPercent
 } from 'lucide-react'
 import { useState } from 'react'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
@@ -40,6 +42,18 @@ const navigation: NavItem[] = [
     href: '/dashboard/cupons',
     icon: Ticket,
     roles: ['partner', 'admin', 'super_admin']
+  },
+  {
+    title: 'Admin - Usuários',
+    href: '/dashboard/admin/usuarios',
+    icon: Shield,
+    roles: ['super_admin']
+  },
+  {
+    title: 'Admin - Cupons',
+    href: '/dashboard/admin/cupons',
+    icon: TicketPercent,
+    roles: ['super_admin']
   },
   {
     title: 'Usuários',
