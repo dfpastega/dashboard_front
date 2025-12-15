@@ -1,13 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { api } from '@/lib/api'
 
-export default function FirstAccessPage() {
+function FirstAccessForm() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const [email, setEmail] = useState('')
@@ -198,5 +198,21 @@ export default function FirstAccessPage() {
         </CardContent>
       </Card>
     </main>
+  )
+}
+
+export default function FirstAccessPage() {
+  return (
+    <Suspense fallback={
+      <main className="min-h-screen flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="space-y-4 mt-4">
+            <div className="text-center">Carregando...</div>
+          </CardContent>
+        </Card>
+      </main>
+    }>
+      <FirstAccessForm />
+    </Suspense>
   )
 }
