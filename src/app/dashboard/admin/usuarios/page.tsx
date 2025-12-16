@@ -60,9 +60,12 @@ export default function UsuariosAdminPage() {
     name: '',
     email: '',
     roleId: 'user',
-    contractId: '',
-    tempPassword: ''
+    contractId: 'none'
   })
+
+  // Modal de senha temporária
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false)
+  const [createdUserInfo, setCreatedUserInfo] = useState<{ email: string; password: string } | null>(null)
 
   useEffect(() => {
     fetchUsers()
@@ -72,7 +75,7 @@ export default function UsuariosAdminPage() {
   const fetchUsers = async () => {
     try {
       setLoading(true)
-      const { data } = await api.get('/admin/users')
+      const { data } = await api.get('/api/admin/users')
       setUsers(data)
     } catch (error) {
       console.error('Erro ao carregar usuários:', error)
@@ -83,7 +86,7 @@ export default function UsuariosAdminPage() {
 
   const fetchContracts = async () => {
     try {
-      const { data } = await api.get('/admin/contracts')
+      const { data } = await api.get('/api/admin/contracts')
       setContracts(data)
     } catch (error) {
       console.error('Erro ao carregar contratos:', error)
@@ -91,19 +94,42 @@ export default function UsuariosAdminPage() {
   }
 
   const handleCreateUser = async () => {
+    // Validação
+    if (!createFormData.email || !createFormData.roleId) {
+      alert('Email e Role são obrigatórios')
+      return
+    }
+
     try {
-      await api.post('/admin/users', createFormData)
+      const payload = {
+        name: createFormData.name || undefined,
+        email: createFormData.email,
+        roleId: createFormData.roleId,
+        contractId: createFormData.contractId && createFormData.contractId !== 'none' ? createFormData.contractId : undefined
+      }
+
+      console.log('Sending payload:', payload) // Debug
+      const { data } = await api.post('/api/admin/users', payload)
+
       setCreateDialogOpen(false)
       setCreateFormData({
         name: '',
         email: '',
         roleId: 'user',
-        contractId: '',
-        tempPassword: ''
+        contractId: 'none'
       })
+
+      // Mostrar senha temporária
+      setCreatedUserInfo({
+        email: data.user.email,
+        password: data.tempPassword
+      })
+      setPasswordDialogOpen(true)
+
       fetchUsers()
     } catch (error: any) {
       console.error('Erro ao criar usuário:', error)
+      console.error('Response data:', error.response?.data) // Debug detalhado
       alert(error.response?.data?.error || 'Erro ao criar usuário')
     }
   }
@@ -114,7 +140,7 @@ export default function UsuariosAdminPage() {
       name: user.name || '',
       email: user.email,
       roleId: user.roleId,
-      contractId: user.contractId || '',
+      contractId: user.contractId || 'none',
       isActive: user.isActive
     })
     setEditDialogOpen(true)
@@ -124,7 +150,11 @@ export default function UsuariosAdminPage() {
     if (!editingUser) return
 
     try {
-      await api.put(`/admin/users/${editingUser.id}`, editFormData)
+      const payload = {
+        ...editFormData,
+        contractId: editFormData.contractId && editFormData.contractId !== 'none' ? editFormData.contractId : undefined
+      }
+      await api.put(`/api/admin/users/${editingUser.id}`, payload)
       setEditDialogOpen(false)
       setEditingUser(null)
       fetchUsers()
@@ -138,7 +168,7 @@ export default function UsuariosAdminPage() {
     if (!confirm('Tem certeza que deseja excluir este usuário?')) return
 
     try {
-      await api.delete(`/admin/users/${userId}`)
+      await api.delete(`/api/admin/users/${userId}`)
       fetchUsers()
     } catch (error: any) {
       console.error('Erro ao excluir usuário:', error)
@@ -339,14 +369,14 @@ export default function UsuariosAdminPage() {
             <div>
               <Label htmlFor="create-contract">Contrato</Label>
               <Select
-                value={createFormData.contractId}
+                value={createFormData.contractId || 'none'}
                 onValueChange={(value) => setCreateFormData({ ...createFormData, contractId: value })}
               >
                 <SelectTrigger id="create-contract">
                   <SelectValue placeholder="Selecione um contrato (opcional)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Nenhum</SelectItem>
+                  <SelectItem value="none">Nenhum</SelectItem>
                   {contracts.map(contract => (
                     <SelectItem key={contract.id} value={contract.id}>
                       {contract.name}
@@ -355,14 +385,8 @@ export default function UsuariosAdminPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <Label htmlFor="create-password">Senha Temporária</Label>
-              <Input
-                id="create-password"
-                type="password"
-                value={createFormData.tempPassword}
-                onChange={(e) => setCreateFormData({ ...createFormData, tempPassword: e.target.value })}
-              />
+            <div className="text-sm text-muted-foreground bg-muted p-3 rounded-lg">
+              <p>ℹ️ Uma senha temporária será gerada automaticamente e exibida após a criação do usuário.</p>
             </div>
           </div>
           <DialogFooter>
@@ -424,14 +448,14 @@ export default function UsuariosAdminPage() {
             <div>
               <Label htmlFor="edit-contract">Contrato</Label>
               <Select
-                value={editFormData.contractId}
+                value={editFormData.contractId || 'none'}
                 onValueChange={(value) => setEditFormData({ ...editFormData, contractId: value })}
               >
                 <SelectTrigger id="edit-contract">
                   <SelectValue placeholder="Selecione um contrato (opcional)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Nenhum</SelectItem>
+                  <SelectItem value="none">Nenhum</SelectItem>
                   {contracts.map(contract => (
                     <SelectItem key={contract.id} value={contract.id}>
                       {contract.name}
@@ -457,6 +481,48 @@ export default function UsuariosAdminPage() {
             </Button>
             <Button onClick={handleUpdateUser}>
               Salvar Alterações
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog de Senha Temporária */}
+      <Dialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Usuário Criado com Sucesso!</DialogTitle>
+            <DialogDescription>
+              Anote a senha temporária abaixo e envie ao usuário
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="bg-muted p-4 rounded-lg space-y-2">
+              <div>
+                <Label className="text-xs text-muted-foreground">Email</Label>
+                <p className="font-medium">{createdUserInfo?.email}</p>
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">Senha Temporária</Label>
+                <p className="font-mono font-bold text-lg">{createdUserInfo?.password}</p>
+              </div>
+            </div>
+            <div className="text-sm text-muted-foreground">
+              <p>⚠️ Esta senha só será exibida uma vez. Certifique-se de copiá-la antes de fechar.</p>
+              <p className="mt-2">O usuário deverá alterar esta senha no primeiro acesso.</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                navigator.clipboard.writeText(createdUserInfo?.password || '')
+                alert('Senha copiada para a área de transferência!')
+              }}
+            >
+              Copiar Senha
+            </Button>
+            <Button onClick={() => setPasswordDialogOpen(false)}>
+              Fechar
             </Button>
           </DialogFooter>
         </DialogContent>

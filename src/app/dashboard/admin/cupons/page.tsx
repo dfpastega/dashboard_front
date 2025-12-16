@@ -52,7 +52,7 @@ export default function CuponsAdminPage() {
     validUntil: '',
     maxUses: '',
     minPurchaseAmount: '',
-    ownerId: ''
+    ownerId: 'none'
   })
 
   // Modal de edição
@@ -85,7 +85,7 @@ export default function CuponsAdminPage() {
   const fetchCoupons = async () => {
     try {
       setLoading(true)
-      const { data } = await api.get('/admin/coupons')
+      const { data } = await api.get('/api/admin/coupons')
       setCoupons(data)
     } catch (error) {
       console.error('Erro ao carregar cupons:', error)
@@ -96,7 +96,7 @@ export default function CuponsAdminPage() {
 
   const fetchUsers = async () => {
     try {
-      const { data } = await api.get('/admin/users')
+      const { data } = await api.get('/api/admin/users')
       setUsers(data.filter((u: User) => u.id)) // Filtrar apenas usuários válidos
     } catch (error) {
       console.error('Erro ao carregar usuários:', error)
@@ -109,10 +109,10 @@ export default function CuponsAdminPage() {
         ...createFormData,
         maxUses: createFormData.maxUses ? parseInt(createFormData.maxUses) : undefined,
         minPurchaseAmount: createFormData.minPurchaseAmount ? parseFloat(createFormData.minPurchaseAmount) : undefined,
-        ownerId: createFormData.ownerId || undefined
+        ownerId: createFormData.ownerId && createFormData.ownerId !== 'none' ? createFormData.ownerId : undefined
       }
 
-      await api.post('/admin/coupons', payload)
+      await api.post('/api/admin/coupons', payload)
       setCreateDialogOpen(false)
       setCreateFormData({
         code: '',
@@ -123,7 +123,7 @@ export default function CuponsAdminPage() {
         validUntil: '',
         maxUses: '',
         minPurchaseAmount: '',
-        ownerId: ''
+        ownerId: 'none'
       })
       fetchCoupons()
     } catch (error: any) {
@@ -158,7 +158,7 @@ export default function CuponsAdminPage() {
         minPurchaseAmount: editFormData.minPurchaseAmount ? parseFloat(editFormData.minPurchaseAmount) : undefined
       }
 
-      await api.put(`/admin/coupons/${editingCoupon.id}`, payload)
+      await api.put(`/api/admin/coupons/${editingCoupon.id}`, payload)
       setEditDialogOpen(false)
       setEditingCoupon(null)
       fetchCoupons()
@@ -172,7 +172,7 @@ export default function CuponsAdminPage() {
     if (!confirm('Tem certeza que deseja excluir este cupom?')) return
 
     try {
-      await api.delete(`/admin/coupons/${couponId}`)
+      await api.delete(`/api/admin/coupons/${couponId}`)
       fetchCoupons()
     } catch (error: any) {
       console.error('Erro ao excluir cupom:', error)
@@ -195,7 +195,7 @@ export default function CuponsAdminPage() {
     }
 
     try {
-      await api.post('/admin/coupons/share', {
+      await api.post('/api/admin/coupons/share', {
         couponId: sharingCoupon.id,
         sharedWithUserId: shareUserId,
         canViewStats,
@@ -215,10 +215,14 @@ export default function CuponsAdminPage() {
   )
 
   const formatDiscount = (coupon: Coupon) => {
+    const value = typeof coupon.discountValue === 'string'
+      ? parseFloat(coupon.discountValue)
+      : coupon.discountValue
+
     if (coupon.discountType === 'percentage') {
-      return `${coupon.discountValue}%`
+      return `${value}%`
     }
-    return `R$ ${coupon.discountValue.toFixed(2)}`
+    return `R$ ${value.toFixed(2)}`
   }
 
   return (
@@ -362,14 +366,14 @@ export default function CuponsAdminPage() {
               <div>
                 <Label htmlFor="create-owner">Proprietário (opcional)</Label>
                 <Select
-                  value={createFormData.ownerId}
+                  value={createFormData.ownerId || 'none'}
                   onValueChange={(value) => setCreateFormData({ ...createFormData, ownerId: value })}
                 >
                   <SelectTrigger id="create-owner">
                     <SelectValue placeholder="Selecione um usuário" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Nenhum</SelectItem>
+                    <SelectItem value="none">Nenhum</SelectItem>
                     {users.map(user => (
                       <SelectItem key={user.id} value={user.id}>
                         {user.name || user.email}
