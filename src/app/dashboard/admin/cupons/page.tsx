@@ -33,6 +33,7 @@ interface User {
   id: string
   email: string
   name?: string
+  roleId: string
 }
 
 export default function CuponsAdminPage() {
@@ -97,7 +98,8 @@ export default function CuponsAdminPage() {
   const fetchUsers = async () => {
     try {
       const { data } = await api.get('/api/admin/users')
-      setUsers(data.filter((u: User) => u.id)) // Filtrar apenas usuários válidos
+      // Filtrar apenas usuários do tipo 'partner'
+      setUsers(data.filter((u: User) => u.id && u.roleId === 'partner'))
     } catch (error) {
       console.error('Erro ao carregar usuários:', error)
     }
@@ -609,22 +611,28 @@ export default function CuponsAdminPage() {
           <DialogHeader>
             <DialogTitle>Compartilhar Cupom</DialogTitle>
             <DialogDescription>
-              Compartilhe o cupom "{sharingCoupon?.code}" com um usuário
+              Compartilhe o cupom "{sharingCoupon?.code}" com um parceiro
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="share-user">Usuário *</Label>
+              <Label htmlFor="share-user">Parceiro *</Label>
               <Select value={shareUserId} onValueChange={setShareUserId}>
                 <SelectTrigger id="share-user">
-                  <SelectValue placeholder="Selecione um usuário" />
+                  <SelectValue placeholder="Selecione um parceiro" />
                 </SelectTrigger>
                 <SelectContent>
-                  {users.map(user => (
-                    <SelectItem key={user.id} value={user.id}>
-                      {user.name || user.email}
+                  {users.length === 0 ? (
+                    <SelectItem value="none" disabled>
+                      Nenhum parceiro disponível
                     </SelectItem>
-                  ))}
+                  ) : (
+                    users.map(user => (
+                      <SelectItem key={user.id} value={user.id}>
+                        {user.name || user.email}
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
             </div>
