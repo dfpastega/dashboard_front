@@ -59,7 +59,8 @@ export default function CuponsPage() {
   }, [])
 
   const formatDiscount = (type: string, value: number) => {
-    return type === 'percentage' ? `${value}%` : `R$ ${value.toFixed(2)}`
+    const numericValue = typeof value === 'string' ? parseFloat(value) : value
+    return type === 'percentage' ? `${numericValue}%` : `R$ ${numericValue.toFixed(2)}`
   }
 
   const formatDate = (dateString?: string) => {
