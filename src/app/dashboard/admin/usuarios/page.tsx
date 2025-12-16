@@ -65,7 +65,8 @@ export default function UsuariosAdminPage() {
 
   // Modal de senha temporária
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false)
-  const [createdUserInfo, setCreatedUserInfo] = useState<{ email: string; password: string } | null>(null)
+  const [createdUserInfo, setCreatedUserInfo] = useState<{ email: string; password: string; name?: string } | null>(null)
+  const [sendingEmail, setSendingEmail] = useState(false)
 
   useEffect(() => {
     fetchUsers()
@@ -122,7 +123,8 @@ export default function UsuariosAdminPage() {
       // Mostrar senha temporária
       setCreatedUserInfo({
         email: data.user.email,
-        password: data.tempPassword
+        password: data.tempPassword,
+        name: data.user.name
       })
       setPasswordDialogOpen(true)
 
@@ -131,6 +133,26 @@ export default function UsuariosAdminPage() {
       console.error('Erro ao criar usuário:', error)
       console.error('Response data:', error.response?.data) // Debug detalhado
       alert(error.response?.data?.error || 'Erro ao criar usuário')
+    }
+  }
+
+  const handleSendWelcomeEmail = async () => {
+    if (!createdUserInfo) return
+
+    try {
+      setSendingEmail(true)
+      await api.post('/api/admin/users/send-welcome-email', {
+        email: createdUserInfo.email,
+        name: createdUserInfo.name,
+        tempPassword: createdUserInfo.password
+      })
+
+      alert('Email de boas-vindas enviado com sucesso!')
+    } catch (error: any) {
+      console.error('Erro ao enviar email:', error)
+      alert(error.response?.data?.error || 'Erro ao enviar email de boas-vindas')
+    } finally {
+      setSendingEmail(false)
     }
   }
 
@@ -511,7 +533,7 @@ export default function UsuariosAdminPage() {
               <p className="mt-2">O usuário deverá alterar esta senha no primeiro acesso.</p>
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
             <Button
               variant="outline"
               onClick={() => {
@@ -521,7 +543,14 @@ export default function UsuariosAdminPage() {
             >
               Copiar Senha
             </Button>
-            <Button onClick={() => setPasswordDialogOpen(false)}>
+            <Button
+              variant="default"
+              onClick={handleSendWelcomeEmail}
+              disabled={sendingEmail}
+            >
+              {sendingEmail ? 'Enviando...' : 'Enviar Email ao Usuário'}
+            </Button>
+            <Button variant="outline" onClick={() => setPasswordDialogOpen(false)}>
               Fechar
             </Button>
           </DialogFooter>
