@@ -14,7 +14,8 @@ import {
   ChevronLeft,
   Shield,
   TicketPercent,
-  Gauge
+  Gauge,
+  Mail
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
@@ -66,6 +67,12 @@ const staticNavigation: NavItem[] = [
     roles: ['super_admin']
   },
   {
+    title: 'Admin - Email Tracking',
+    href: '/dashboard/admin/email-tracking',
+    icon: Mail,
+    roles: ['super_admin']
+  },
+  {
     title: 'Usuários',
     href: '/dashboard/usuarios',
     icon: Users,
@@ -92,7 +99,7 @@ function SidebarContent({ userRole, isCollapsed, onToggle }: {
   useEffect(() => {
     const fetchDashboards = async () => {
       try {
-        const { data } = await api.get('/dashboards')
+        const { data } = await api.get('/api/dashboards')
         setDashboards(data)
       } catch (error) {
         console.error('Erro ao carregar dashboards:', error)
