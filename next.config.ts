@@ -5,7 +5,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: "/r/:slug",
-        destination: `${process.env.NEXT_PUBLIC_API_URL}/r/:slug`,
+        destination: `${process.env.NEXT_PUBLIC_API_URL}/api/r/:slug`,
       },
     ];
   },
