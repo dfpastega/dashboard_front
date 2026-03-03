@@ -65,7 +65,7 @@ export default function EmailTrackingPage() {
   async function fetchLinks() {
     try {
       setLoading(true)
-      const { data } = await api.get('/tracking/links')
+      const { data } = await api.get('/api/tracking/links')
       setLinks(data)
     } catch (error: any) {
       alert(error.response?.data?.error || 'Erro ao carregar links')
@@ -85,7 +85,7 @@ export default function EmailTrackingPage() {
     }
     try {
       setSaving(true)
-      await api.post('/tracking/links', formData)
+      await api.post('/api/tracking/links', formData)
       setShowCreateDialog(false)
       setFormData({ slug: '', label: '', destination: '' })
       await fetchLinks()
@@ -101,7 +101,7 @@ export default function EmailTrackingPage() {
     setShowClicksDialog(true)
     setLoadingClicks(true)
     try {
-      const { data } = await api.get(`/tracking/links/${link.id}/clicks`)
+      const { data } = await api.get(`/api/tracking/links/${link.id}/clicks`)
       setClicks(data.clicks)
     } catch (error: any) {
       alert(error.response?.data?.error || 'Erro ao carregar cliques')
