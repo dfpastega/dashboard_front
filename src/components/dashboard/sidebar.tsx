@@ -13,10 +13,12 @@ import {
   Menu,
   ChevronLeft,
   Shield,
-  TicketPercent
+  TicketPercent,
+  Gauge
 } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
+import { api } from '@/lib/api'
 
 interface SidebarProps {
   userRole: string
@@ -30,18 +32,26 @@ interface NavItem {
   roles: string[]
 }
 
-const navigation: NavItem[] = [
-  {
-    title: 'Dashboard',
-    href: '/dashboard',
-    icon: LayoutDashboard,
-    roles: ['user', 'partner', 'contract_manager', 'admin', 'super_admin']
-  },
+interface DashboardItem {
+  id: string
+  name: string
+  slug: string
+  icon?: string
+}
+
+// Menu estático (não são dashboards dinâmicos)
+const staticNavigation: NavItem[] = [
   {
     title: 'Meus Cupons',
     href: '/dashboard/cupons',
     icon: Ticket,
     roles: ['partner', 'admin', 'super_admin']
+  },
+  {
+    title: 'Admin - Dashboards',
+    href: '/dashboard/admin/dashboards',
+    icon: Gauge,
+    roles: ['super_admin']
   },
   {
     title: 'Admin - Usuários',
@@ -75,10 +85,38 @@ function SidebarContent({ userRole, isCollapsed, onToggle }: {
   onToggle?: () => void
 }) {
   const pathname = usePathname()
+  const [dashboards, setDashboards] = useState<DashboardItem[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const filteredNav = navigation.filter(item =>
-    item.roles.includes(userRole)
-  )
+  // Buscar dashboards disponíveis para o usuário
+  useEffect(() => {
+    const fetchDashboards = async () => {
+      try {
+        const { data } = await api.get('/dashboards')
+        setDashboards(data)
+      } catch (error) {
+        console.error('Erro ao carregar dashboards:', error)
+        setDashboards([])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchDashboards()
+  }, [])
+
+  // Combinar dashboards dinâmicos + menu estático
+  const navigation: NavItem[] = [
+    // 1. Dashboards dinâmicos primeiro
+    ...dashboards.map((dashboard) => ({
+      title: dashboard.name,
+      href: `/dashboard/${dashboard.slug}`,
+      icon: LayoutDashboard, // Usar ícone padrão ou mapear dashboard.icon
+      roles: [] as string[], // Já filtrado pela API
+    })),
+    // 2. Itens estáticos depois
+    ...staticNavigation.filter((item) => item.roles.includes(userRole)),
+  ]
 
   return (
     <div className="flex flex-col h-full">
@@ -115,27 +153,33 @@ function SidebarContent({ userRole, isCollapsed, onToggle }: {
 
       <ScrollArea className="flex-1 px-3 py-4">
         <nav className="space-y-2">
-          {filteredNav.map((item) => {
-            const Icon = item.icon
-            const isActive = pathname === item.href
+          {loading ? (
+            <div className="text-center text-sm text-muted-foreground py-4">
+              Carregando...
+            </div>
+          ) : (
+            navigation.map((item) => {
+              const Icon = item.icon
+              const isActive = pathname === item.href
 
-            return (
-              <Link key={item.href} href={item.href}>
-                <Button
-                  variant={isActive ? 'secondary' : 'ghost'}
-                  className={cn(
-                    'w-full gap-3',
-                    isCollapsed ? 'justify-center px-2' : 'justify-start',
-                    isActive && 'bg-secondary'
-                  )}
-                  title={isCollapsed ? item.title : undefined}
-                >
-                  <Icon className="h-4 w-4 flex-shrink-0" />
-                  {!isCollapsed && <span>{item.title}</span>}
-                </Button>
-              </Link>
-            )
-          })}
+              return (
+                <Link key={item.href} href={item.href}>
+                  <Button
+                    variant={isActive ? 'secondary' : 'ghost'}
+                    className={cn(
+                      'w-full gap-3',
+                      isCollapsed ? 'justify-center px-2' : 'justify-start',
+                      isActive && 'bg-secondary'
+                    )}
+                    title={isCollapsed ? item.title : undefined}
+                  >
+                    <Icon className="h-4 w-4 flex-shrink-0" />
+                    {!isCollapsed && <span>{item.title}</span>}
+                  </Button>
+                </Link>
+              )
+            })
+          )}
         </nav>
       </ScrollArea>
     </div>
