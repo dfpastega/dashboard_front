@@ -32,7 +32,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import { Plus, Pencil, Trash2, Eye, EyeOff, Loader2 } from 'lucide-react'
-import api from '@/lib/api'
+import { api } from '@/lib/api'
 import { Checkbox } from '@/components/ui/checkbox'
 
 interface Dashboard {
@@ -95,7 +95,7 @@ export default function DashboardsAdminPage() {
   const fetchDashboards = async () => {
     try {
       setLoading(true)
-      const { data } = await api.get('/dashboards/admin/all')
+      const { data } = await api.get('/api/dashboards/admin/all')
       setDashboards(data)
     } catch (error: any) {
       console.error('Erro ao carregar dashboards:', error)
@@ -223,11 +223,11 @@ export default function DashboardsAdminPage() {
 
       if (editingDashboard) {
         // Atualizar
-        await api.put(`/dashboards/admin/${editingDashboard.id}`, payload)
+        await api.put(`/api/dashboards/admin/${editingDashboard.id}`, payload)
         alert('Dashboard atualizado com sucesso!')
       } else {
         // Criar
-        await api.post('/dashboards/admin', payload)
+        await api.post('/api/dashboards/admin', payload)
         alert('Dashboard criado com sucesso!')
       }
 
@@ -247,7 +247,7 @@ export default function DashboardsAdminPage() {
     }
 
     try {
-      await api.delete(`/dashboards/admin/${dashboard.id}`)
+      await api.delete(`/api/dashboards/admin/${dashboard.id}`)
       alert('Dashboard deletado com sucesso!')
       fetchDashboards()
     } catch (error: any) {
@@ -258,7 +258,7 @@ export default function DashboardsAdminPage() {
 
   const toggleActive = async (dashboard: Dashboard) => {
     try {
-      await api.put(`/dashboards/admin/${dashboard.id}`, {
+      await api.put(`/api/dashboards/admin/${dashboard.id}`, {
         isActive: !dashboard.isActive,
       })
       fetchDashboards()
