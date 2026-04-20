@@ -15,7 +15,8 @@ import {
   Shield,
   TicketPercent,
   Gauge,
-  Mail
+  Mail,
+  FileText
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
@@ -70,6 +71,12 @@ const staticNavigation: NavItem[] = [
     title: 'Admin - Email Tracking',
     href: '/dashboard/admin/email-tracking',
     icon: Mail,
+    roles: ['super_admin']
+  },
+  {
+    title: 'Admin - Contratos',
+    href: '/dashboard/admin/contratos',
+    icon: FileText,
     roles: ['super_admin']
   },
   {
