@@ -16,7 +16,8 @@ import {
   TicketPercent,
   Gauge,
   Mail,
-  FileText
+  FileText,
+  MessageCircle
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
@@ -77,6 +78,12 @@ const staticNavigation: NavItem[] = [
     title: 'Admin - Contratos',
     href: '/dashboard/admin/contratos',
     icon: FileText,
+    roles: ['super_admin']
+  },
+  {
+    title: 'Admin - WhatsApp',
+    href: '/dashboard/admin/whatsapp-templates',
+    icon: MessageCircle,
     roles: ['super_admin']
   },
   {
