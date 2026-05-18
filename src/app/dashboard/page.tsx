@@ -1,92 +1,100 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import { api } from '@/lib/api'
-import { LayoutDashboard } from 'lucide-react'
+import { Building2, LayoutDashboard, Loader2 } from 'lucide-react'
+import { useUserContext } from '@/contexts/user-context'
 
-interface User {
-  id: string
-  email: string
-  name?: string
-  roleId: string
-  contractId?: string
-}
+function DashboardContent() {
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const { contracts } = useUserContext()
 
-export default function DashboardPage() {
-  const [user, setUser] = useState<User | null>(null)
+  const contractIdParam = searchParams?.get('contractId') ?? null
+
   const [iframeUrl, setIframeUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string>('')
+  const [error, setError] = useState('')
+
+  // Determine which contractId to use
+  const resolvedContractId = contractIdParam
+    || (contracts.length === 1 ? contracts[0].id : null)
+    || contracts.find(c => c.isPrimary)?.id
+    || null
+
+  const needsSelection = contracts.length > 1 && !contractIdParam
 
   useEffect(() => {
-    let mounted = true
-
-    const fetchData = async () => {
-      try {
-        // Buscar dados do usuário
-        const { data: userData } = await api.get('/auth/me')
-        console.log('✅ Dados do usuário:', userData)
-        if (!mounted) return
-        setUser(userData)
-
-        // Buscar URL do Metabase
-        if (userData.contractId) {
-          try {
-            console.log('📊 Solicitando iframe do Metabase para contractId:', userData.contractId)
-            const { data: iframeData } = await api.post('/api/metabase/iframe', {
-              contractId: userData.contractId
-            })
-            console.log('✅ URL do iframe recebida:', iframeData.iframeUrl)
-            console.log('🔍 Testando URL diretamente...')
-
-            // Testar se a URL funciona antes de setar no iframe
-            fetch(iframeData.iframeUrl, { mode: 'no-cors' })
-              .then(() => console.log('✅ URL acessível'))
-              .catch(err => console.error('❌ URL inacessível:', err))
-
-            if (!mounted) return
-            setIframeUrl(iframeData.iframeUrl)
-          } catch (metabaseError: any) {
-            console.error('❌ Erro ao carregar Metabase:', {
-              status: metabaseError.response?.status,
-              data: metabaseError.response?.data,
-              message: metabaseError.message
-            })
-            if (!mounted) return
-            const errorMsg = metabaseError.response?.data?.error || 'Dashboard temporariamente indisponível. Verifique as configurações de embedding no Metabase.'
-            setError(errorMsg)
-          }
-        } else {
-          console.log('⚠️ Usuário não possui contractId')
-        }
-      } catch (error: any) {
-        console.error('❌ Erro ao carregar dados do usuário:', error)
-        if (!mounted) return
-        setError('Erro ao carregar dados do usuário')
-      } finally {
-        if (mounted) setLoading(false)
-      }
+    if (needsSelection) {
+      setLoading(false)
+      return
     }
-
-    fetchData()
-    return () => {
-      mounted = false
+    if (!resolvedContractId) {
+      setLoading(false)
+      return
     }
-  }, [])
+    let cancelled = false
+    setLoading(true)
+    setError('')
+    setIframeUrl(null)
+
+    api.post('/api/metabase/iframe', { contractId: resolvedContractId })
+      .then(({ data }) => { if (!cancelled) setIframeUrl(data.iframeUrl) })
+      .catch((err) => { if (!cancelled) setError(err.response?.data?.error || 'Dashboard temporariamente indisponível.') })
+      .finally(() => { if (!cancelled) setLoading(false) })
+
+    return () => { cancelled = true }
+  }, [resolvedContractId, needsSelection])
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-center">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent motion-reduce:animate-[spin_1.5s_linear_infinite]" />
-          <p className="mt-4 text-sm text-muted-foreground">Carregando dashboard...</p>
+      <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
+        <div className="text-center space-y-4">
+          <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
+          <p className="text-muted-foreground">Carregando dashboard...</p>
         </div>
       </div>
     )
   }
 
-  if (!user?.contractId) {
+  // Seletor de contrato
+  if (needsSelection) {
+    return (
+      <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Building2 className="h-5 w-5" />
+              Selecione um contrato
+            </CardTitle>
+            <CardDescription>
+              Escolha qual contrato deseja visualizar no dashboard
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {contracts.map(contract => (
+              <Button
+                key={contract.id}
+                variant="outline"
+                className="w-full justify-start gap-3 h-12"
+                onClick={() => router.push(`/dashboard?contractId=${contract.id}`)}
+              >
+                <Building2 className="h-4 w-4 text-muted-foreground" />
+                <span className="flex-1 text-left">{contract.name}</span>
+                {contract.isPrimary && <span className="text-xs text-muted-foreground">principal</span>}
+              </Button>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  // Sem contrato associado
+  if (!resolvedContractId) {
     return (
       <Card>
         <CardHeader>
@@ -94,9 +102,7 @@ export default function DashboardPage() {
             <LayoutDashboard className="h-5 w-5" />
             Dashboard
           </CardTitle>
-          <CardDescription>
-            Seu painel de controle
-          </CardDescription>
+          <CardDescription>Seu painel de controle</CardDescription>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground">
@@ -107,33 +113,51 @@ export default function DashboardPage() {
     )
   }
 
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground">
-          Visualize suas métricas e informações
-        </p>
-      </div>
+  if (error) {
+    return (
+      <Card className="border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950">
+        <CardContent className="p-6">
+          <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+        </CardContent>
+      </Card>
+    )
+  }
 
-      {error ? (
-        <Card className="border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950">
-          <CardContent className="p-6">
-            <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
-          </CardContent>
-        </Card>
-      ) : iframeUrl ? (
+  const activeContract = contracts.find(c => c.id === contractIdParam)
+
+  return (
+    <div className="h-full w-full -m-6">
+      {contracts.length > 1 && contractIdParam && (
+        <div className="flex items-center gap-2 px-4 py-2 border-b text-sm text-muted-foreground bg-background">
+          <Building2 className="h-3.5 w-3.5" />
+          <span>
+            Exibindo: <strong className="text-foreground">{activeContract?.name ?? contractIdParam}</strong>
+          </span>
+          <Button variant="ghost" size="sm" className="ml-auto h-7 text-xs" onClick={() => router.push('/dashboard')}>
+            Trocar contrato
+          </Button>
+        </div>
+      )}
+      {iframeUrl && (
         <iframe
           src={iframeUrl}
           className="w-full border-0"
-          style={{ height: 'calc(100vh - 280px)', minHeight: '600px' }}
+          style={{ height: contracts.length > 1 ? 'calc(100vh - 7rem)' : 'calc(100vh - 4rem)', minHeight: '600px' }}
           title="Metabase Dashboard"
         />
-      ) : (
-        <div className="text-sm text-muted-foreground">
-          Carregando visualizações...
-        </div>
       )}
     </div>
+  )
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    }>
+      <DashboardContent />
+    </Suspense>
   )
 }
