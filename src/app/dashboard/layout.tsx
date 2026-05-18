@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Sidebar, MobileSidebar } from '@/components/dashboard/sidebar'
 import { Header } from '@/components/dashboard/header'
 import { api } from '@/lib/api'
+import { UserContext, type UserContract } from '@/contexts/user-context'
 
 interface User {
   id: string
@@ -12,6 +13,7 @@ interface User {
   name?: string
   roleId: string
   contractId?: string
+  contracts: UserContract[]
 }
 
 export default function DashboardLayout({
@@ -27,7 +29,7 @@ export default function DashboardLayout({
     const fetchUser = async () => {
       try {
         const { data } = await api.get('/auth/me')
-        setUser(data)
+        setUser({ ...data, contracts: data.contracts ?? [] })
       } catch (error) {
         console.error('Erro ao carregar usuário:', error)
         router.push('/')
@@ -50,24 +52,24 @@ export default function DashboardLayout({
     )
   }
 
-  if (!user) {
-    return null
-  }
+  if (!user) return null
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      <Sidebar userRole={user.roleId} />
+    <UserContext.Provider value={{ contracts: user.contracts }}>
+      <div className="flex h-screen overflow-hidden">
+        <Sidebar userRole={user.roleId} userContracts={user.contracts} />
 
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <Header
-          user={user}
-          mobileMenuButton={<MobileSidebar userRole={user.roleId} />}
-        />
+        <div className="flex flex-1 flex-col overflow-hidden">
+          <Header
+            user={user}
+            mobileMenuButton={<MobileSidebar userRole={user.roleId} userContracts={user.contracts} />}
+          />
 
-        <main className="flex-1 overflow-y-auto bg-background p-6">
-          {children}
-        </main>
+          <main className="flex-1 overflow-y-auto bg-background p-6">
+            {children}
+          </main>
+        </div>
       </div>
-    </div>
+    </UserContext.Provider>
   )
 }
