@@ -116,6 +116,12 @@ const CTA_MAX = 3  // CTA total máximo (1 phone + 2 url)
 
 // ─── Mirrors backend transformComponents() for live preview ──────────────────
 
+function fillExamples(examples: string[], count: number): string[] {
+  return Array.from({ length: count }, (_, i) =>
+    examples[i]?.trim() || `[OBRIGATÓRIO — preencha exemplo ${i + 1}]`
+  )
+}
+
 function buildPayloadPreview(opts: {
   name: string
   category: string
@@ -138,7 +144,8 @@ function buildPayloadPreview(opts: {
         parameters: [{
           type: 'text',
           text: opts.headerText || '',
-          ...(varCount > 0 ? { example: opts.headerExamples.slice(0, varCount) } : {}),
+          // example é SEMPRE incluído quando há variáveis
+          ...(varCount > 0 ? { example: fillExamples(opts.headerExamples, varCount) } : {}),
         }],
       })
     } else {
@@ -156,7 +163,8 @@ function buildPayloadPreview(opts: {
       parameters: [{
         type: 'text',
         text: opts.bodyText,
-        ...(varCount > 0 ? { example: opts.bodyExamples.slice(0, varCount) } : {}),
+        // example é SEMPRE incluído quando há variáveis
+        ...(varCount > 0 ? { example: fillExamples(opts.bodyExamples, varCount) } : {}),
       }],
     })
   }
@@ -176,7 +184,8 @@ function buildPayloadPreview(opts: {
         if (btn.type === 'PHONE_NUMBER') return { type: 'phoneNumber', text: btn.text, phoneNumber: btn.phone }
         const isDynamic = /\{\{1\}\}/.test(btn.url)
         if (isDynamic) {
-          return { type: 'dynamicURL', text: btn.text, url: btn.url, ...(btn.urlExample ? { example: [btn.urlExample] } : {}) }
+          const ex = btn.urlExample?.trim() || '[OBRIGATÓRIO — preencha URL de exemplo]'
+          return { type: 'dynamicURL', text: btn.text, url: btn.url, example: [ex] }
         }
         return { type: 'staticURL', text: btn.text, url: btn.url }
       }),
@@ -185,7 +194,7 @@ function buildPayloadPreview(opts: {
 
   return {
     payload: {
-      name: opts.name || '<nome>',
+      name: opts.name || '[OBRIGATÓRIO — preencha o nome]',
       category: opts.category,
       language: opts.language,
       components,
@@ -309,19 +318,31 @@ function VarExamples({
 }) {
   if (count === 0) return null
   return (
-    <div className="space-y-2">
-      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</p>
-      {Array.from({ length: count }, (_, i) => (
-        <div key={i} className="flex items-center gap-2">
-          <span className="text-xs font-mono text-muted-foreground w-8 text-right">{`{{${i + 1}}}`}</span>
-          <Input
-            placeholder={`Exemplo do parâmetro ${i + 1}`}
-            value={examples[i] ?? ''}
-            onChange={e => onChange(i, e.target.value)}
-            className="h-8 text-sm"
-          />
-        </div>
-      ))}
+    <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
+      <p className="text-xs font-semibold text-amber-800 flex items-center gap-1">
+        <AlertTriangle className="h-3.5 w-3.5" />
+        {label}
+        <span className="text-red-600 ml-0.5">*</span>
+        <span className="font-normal text-amber-700 ml-1">— obrigatório pela Meta</span>
+      </p>
+      {Array.from({ length: count }, (_, i) => {
+        const val = examples[i] ?? ''
+        const isEmpty = !val.trim()
+        return (
+          <div key={i} className="flex items-center gap-2">
+            <span className="text-xs font-mono text-amber-700 w-8 text-right flex-shrink-0">{`{{${i + 1}}}`}</span>
+            <Input
+              placeholder={`Exemplo real para {{${i + 1}}} (ex: João)`}
+              value={val}
+              onChange={e => onChange(i, e.target.value)}
+              className={`h-8 text-sm ${isEmpty ? 'border-red-300 focus-visible:ring-red-400' : 'border-green-300'}`}
+            />
+            {isEmpty
+              ? <span className="text-red-500 text-xs flex-shrink-0">obrigatório</span>
+              : <Check className="h-3.5 w-3.5 text-green-500 flex-shrink-0" />}
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -554,7 +575,10 @@ function CreateTab() {
           type: 'HEADER',
           format: 'TEXT',
           text: headerText,
-          ...(headerVarCount > 0 ? { example: { header_text: headerExamples.slice(0, headerVarCount) } } : {}),
+          // example sempre incluído quando há variáveis (obrigatório pela Meta)
+        ...(headerVarCount > 0
+          ? { example: { header_text: headerExamples.slice(0, headerVarCount).map(e => e.trim()) } }
+          : {}),
         })
       } else {
         comps.push({ type: 'HEADER', format: headerFormat })
@@ -565,7 +589,10 @@ function CreateTab() {
       comps.push({
         type: 'BODY',
         text: bodyText,
-        ...(bodyVarCount > 0 ? { example: { body_text: [bodyExamples.slice(0, bodyVarCount)] } } : {}),
+        // example sempre incluído quando há variáveis (obrigatório pela Meta)
+        ...(bodyVarCount > 0
+          ? { example: { body_text: [bodyExamples.slice(0, bodyVarCount).map(e => e.trim())] } }
+          : {}),
       })
     }
 
@@ -579,13 +606,12 @@ function CreateTab() {
         buttons: buttons.map(btn => {
           if (btn.type === 'QUICK_REPLY') return { type: 'QUICK_REPLY', text: btn.text }
           if (btn.type === 'PHONE_NUMBER') return { type: 'PHONE_NUMBER', text: btn.text, phone_number: btn.phone }
-          // URL
           const hasVar = /\{\{1\}\}/.test(btn.url)
           return {
             type: 'URL',
             text: btn.text,
             url: btn.url,
-            ...(hasVar && btn.urlExample ? { example: [btn.urlExample] } : {}),
+            ...(hasVar ? { example: [btn.urlExample?.trim() || ''] } : {}),
           }
         }),
       })
