@@ -41,6 +41,9 @@ import {
   Phone,
   Link,
   CornerDownRight,
+  Code2,
+  Copy,
+  Check,
 } from 'lucide-react'
 import { api } from '@/lib/api'
 
@@ -110,6 +113,85 @@ type TemplateButton = QuickReplyButton | PhoneButton | UrlButton
 // Limites da Meta
 const QR_MAX = 3   // Quick Reply máximo
 const CTA_MAX = 3  // CTA total máximo (1 phone + 2 url)
+
+// ─── Mirrors backend transformComponents() for live preview ──────────────────
+
+function buildPayloadPreview(opts: {
+  name: string
+  category: string
+  language: string
+  headerFormat: string
+  headerText: string
+  headerExamples: string[]
+  bodyText: string
+  bodyExamples: string[]
+  footerText: string
+  buttons: TemplateButton[]
+}) {
+  const components: object[] = []
+
+  if (opts.headerFormat !== 'NONE') {
+    if (opts.headerFormat === 'TEXT') {
+      const varCount = extractMaxVar(opts.headerText)
+      components.push({
+        type: 'HEADER',
+        parameters: [{
+          type: 'text',
+          text: opts.headerText || '',
+          ...(varCount > 0 ? { example: opts.headerExamples.slice(0, varCount) } : {}),
+        }],
+      })
+    } else {
+      components.push({
+        type: 'HEADER',
+        parameters: [{ type: opts.headerFormat.toLowerCase() }],
+      })
+    }
+  }
+
+  if (opts.bodyText.trim()) {
+    const varCount = extractMaxVar(opts.bodyText)
+    components.push({
+      type: 'BODY',
+      parameters: [{
+        type: 'text',
+        text: opts.bodyText,
+        ...(varCount > 0 ? { example: opts.bodyExamples.slice(0, varCount) } : {}),
+      }],
+    })
+  }
+
+  if (opts.footerText.trim()) {
+    components.push({
+      type: 'footer',
+      parameters: [{ type: 'text', text: opts.footerText }],
+    })
+  }
+
+  if (opts.buttons.length > 0) {
+    components.push({
+      type: 'BUTTONS',
+      parameters: opts.buttons.map(btn => {
+        if (btn.type === 'QUICK_REPLY') return { type: 'quickReply', text: btn.text }
+        if (btn.type === 'PHONE_NUMBER') return { type: 'phoneNumber', text: btn.text, phoneNumber: btn.phone }
+        const isDynamic = /\{\{1\}\}/.test(btn.url)
+        if (isDynamic) {
+          return { type: 'dynamicURL', text: btn.text, url: btn.url, ...(btn.urlExample ? { example: [btn.urlExample] } : {}) }
+        }
+        return { type: 'staticURL', text: btn.text, url: btn.url }
+      }),
+    })
+  }
+
+  return {
+    payload: {
+      name: opts.name || '<nome>',
+      category: opts.category,
+      language: opts.language,
+      components,
+    },
+  }
+}
 
 function slugify(value: string) {
   return value.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')
@@ -425,6 +507,7 @@ function CreateTab() {
   const [buttonMode, setButtonMode] = useState<ButtonMode>('NONE')
   const [buttons, setButtons] = useState<TemplateButton[]>([])
   const [submitting, setSubmitting] = useState(false)
+  const [copied, setCopied] = useState(false)
   const [result, setResult] = useState<{
     success: boolean
     message: string
@@ -880,6 +963,48 @@ function CreateTab() {
               </ul>
             </CardContent>
           </Card>
+
+          {/* JSON Preview */}
+          {(() => {
+            const preview = buildPayloadPreview({
+              name, category, language,
+              headerFormat, headerText, headerExamples,
+              bodyText, bodyExamples, footerText, buttons,
+            })
+            const json = JSON.stringify(preview, null, 2)
+
+            function copyJson() {
+              navigator.clipboard.writeText(json)
+              setCopied(true)
+              setTimeout(() => setCopied(false), 2000)
+            }
+
+            return (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <Code2 className="h-4 w-4 text-muted-foreground" />
+                      JSON enviado à API
+                    </span>
+                    <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={copyJson}>
+                      {copied
+                        ? <><Check className="h-3.5 w-3.5 mr-1 text-green-500" />Copiado</>
+                        : <><Copy className="h-3.5 w-3.5 mr-1" />Copiar</>}
+                    </Button>
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Payload exato enviado ao Smarters / Meta. Verifique se está correto antes de criar.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <pre className="text-xs bg-muted rounded-md p-3 overflow-x-auto max-h-80 overflow-y-auto leading-relaxed">
+                    {json}
+                  </pre>
+                </CardContent>
+              </Card>
+            )
+          })()}
         </div>
       </div>
     </div>
