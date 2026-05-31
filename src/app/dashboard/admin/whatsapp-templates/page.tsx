@@ -431,6 +431,7 @@ function CreateTab() {
     id?: string
     status?: string
     validationErrors?: Array<{ error: string; message: string }>
+    rejectedReason?: string | null
   } | null>(null)
 
   const headerVarCount = headerFormat === 'TEXT' ? extractMaxVar(headerText) : 0
@@ -530,15 +531,28 @@ function CreateTab() {
         language,
         components: buildComponents(),
       })
+      const isRejected = data.status === 'REJECTED'
       setResult({
-        success: true,
+        success: !isRejected,
         message: data.message,
         id: data.templateId,
         status: data.status,
         validationErrors: data.validationErrors ?? [],
+        rejectedReason: data.rejectedReason ?? null,
       })
     } catch (err: any) {
       const errData = err.response?.data
+      // HTTP 422 = rejeitado pela Meta
+      if (err.response?.status === 422 && errData) {
+        setResult({
+          success: false,
+          message: errData.message || 'Template rejeitado pela Meta.',
+          id: errData.templateId,
+          status: errData.status,
+          rejectedReason: errData.rejectedReason ?? null,
+        })
+        return
+      }
       const errMsg = errData?.error || errData?.message || 'Erro ao criar template.'
       setResult({ success: false, message: errMsg })
     } finally {
@@ -723,22 +737,47 @@ function CreateTab() {
                   : <XCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />}
                 <div className="space-y-0.5 flex-1">
                   <p className={`text-sm font-medium ${result.success ? 'text-green-800' : 'text-red-800'}`}>
-                    {result.success ? 'Template criado!' : 'Erro ao criar template'}
+                    {result.success ? 'Template criado!' : result.status === 'REJECTED' ? 'Template rejeitado pela Meta' : 'Erro ao criar template'}
                   </p>
                   <p className={`text-xs ${result.success ? 'text-green-700' : 'text-red-700'}`}>
                     {result.message}
                   </p>
                   {result.id && (
-                    <p className="text-xs text-green-600 font-mono">ID: {result.id}</p>
+                    <p className={`text-xs font-mono ${result.success ? 'text-green-600' : 'text-red-500'}`}>
+                      ID: {result.id}
+                    </p>
                   )}
                   {result.status && (
-                    <p className="text-xs text-green-600">
+                    <p className={`text-xs ${result.success ? 'text-green-600' : 'text-red-600'}`}>
                       Status: <strong>{result.status}</strong>
                     </p>
                   )}
                 </div>
               </div>
-              {/* Erros de validação retornados pelo Smarters */}
+
+              {/* Motivo de rejeição */}
+              {result.rejectedReason && (
+                <div className="rounded-md bg-red-100 border border-red-300 p-2.5 space-y-1">
+                  <p className="text-xs font-semibold text-red-800 flex items-center gap-1">
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                    Motivo da rejeição
+                  </p>
+                  <p className="text-xs text-red-700">{result.rejectedReason}</p>
+                  <p className="text-[10px] text-red-500 pt-0.5">
+                    Corrija o template conforme as{' '}
+                    <a
+                      href="https://developers.facebook.com/docs/whatsapp/message-templates/guidelines/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline"
+                    >
+                      diretrizes da Meta
+                    </a>{' '}e tente novamente com um nome diferente.
+                  </p>
+                </div>
+              )}
+
+              {/* Erros de validação */}
               {result.validationErrors && result.validationErrors.length > 0 && (
                 <div className="rounded-md bg-amber-50 border border-amber-200 p-2.5 space-y-1">
                   <p className="text-xs font-medium text-amber-800 flex items-center gap-1">
