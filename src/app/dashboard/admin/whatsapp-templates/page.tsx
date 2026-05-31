@@ -318,28 +318,30 @@ function VarExamples({
 }) {
   if (count === 0) return null
   return (
-    <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
-      <p className="text-xs font-semibold text-amber-800 flex items-center gap-1">
+    <div className="space-y-2 rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/40 p-3">
+      <p className="text-xs font-semibold text-amber-900 dark:text-amber-300 flex items-center gap-1">
         <AlertTriangle className="h-3.5 w-3.5" />
         {label}
-        <span className="text-red-600 ml-0.5">*</span>
-        <span className="font-normal text-amber-700 ml-1">— obrigatório pela Meta</span>
+        <span className="text-red-600 dark:text-red-400 ml-0.5">*</span>
+        <span className="font-normal text-amber-700 dark:text-amber-400 ml-1">— obrigatório pela Meta</span>
       </p>
       {Array.from({ length: count }, (_, i) => {
         const val = examples[i] ?? ''
         const isEmpty = !val.trim()
         return (
           <div key={i} className="flex items-center gap-2">
-            <span className="text-xs font-mono text-amber-700 w-8 text-right flex-shrink-0">{`{{${i + 1}}}`}</span>
+            <span className="text-xs font-mono text-amber-800 dark:text-amber-400 w-8 text-right flex-shrink-0">{`{{${i + 1}}}`}</span>
             <Input
               placeholder={`Exemplo real para {{${i + 1}}} (ex: João)`}
               value={val}
               onChange={e => onChange(i, e.target.value)}
-              className={`h-8 text-sm ${isEmpty ? 'border-red-300 focus-visible:ring-red-400' : 'border-green-300'}`}
+              className={`h-8 text-sm text-foreground ${isEmpty
+                ? 'border-red-400 dark:border-red-600 focus-visible:ring-red-400'
+                : 'border-green-400 dark:border-green-600'}`}
             />
             {isEmpty
-              ? <span className="text-red-500 text-xs flex-shrink-0">obrigatório</span>
-              : <Check className="h-3.5 w-3.5 text-green-500 flex-shrink-0" />}
+              ? <span className="text-red-500 dark:text-red-400 text-xs flex-shrink-0">obrigatório</span>
+              : <Check className="h-3.5 w-3.5 text-green-500 dark:text-green-400 flex-shrink-0" />}
           </div>
         )
       })}
@@ -866,13 +868,13 @@ function CreateTab() {
 
               {/* Motivo de rejeição */}
               {result.rejectedReason && (
-                <div className="rounded-md bg-red-100 border border-red-300 p-2.5 space-y-1">
-                  <p className="text-xs font-semibold text-red-800 flex items-center gap-1">
+                <div className="rounded-md bg-red-100 dark:bg-red-950/50 border border-red-300 dark:border-red-700 p-2.5 space-y-1">
+                  <p className="text-xs font-semibold text-red-800 dark:text-red-300 flex items-center gap-1">
                     <AlertTriangle className="h-3.5 w-3.5" />
                     Motivo da rejeição
                   </p>
-                  <p className="text-xs text-red-700">{result.rejectedReason}</p>
-                  <p className="text-[10px] text-red-500 pt-0.5">
+                  <p className="text-xs text-red-700 dark:text-red-400">{result.rejectedReason}</p>
+                  <p className="text-[10px] text-red-500 dark:text-red-500 pt-0.5">
                     Corrija o template conforme as{' '}
                     <a
                       href="https://developers.facebook.com/docs/whatsapp/message-templates/guidelines/"
@@ -888,13 +890,13 @@ function CreateTab() {
 
               {/* Erros de validação */}
               {result.validationErrors && result.validationErrors.length > 0 && (
-                <div className="rounded-md bg-amber-50 border border-amber-200 p-2.5 space-y-1">
-                  <p className="text-xs font-medium text-amber-800 flex items-center gap-1">
+                <div className="rounded-md bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-700 p-2.5 space-y-1">
+                  <p className="text-xs font-medium text-amber-800 dark:text-amber-300 flex items-center gap-1">
                     <AlertTriangle className="h-3.5 w-3.5" />
                     Avisos de validação ({result.validationErrors.length})
                   </p>
                   {result.validationErrors.map((e, i) => (
-                    <p key={i} className="text-xs text-amber-700">
+                    <p key={i} className="text-xs text-amber-700 dark:text-amber-400">
                       <span className="font-mono">{e.error}</span> — {e.message}
                     </p>
                   ))}
