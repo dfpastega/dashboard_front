@@ -60,6 +60,35 @@ function validateUrl(raw: string): string | null {
   }
 }
 
+// ─── URL input helper (fora do componente para evitar remount a cada render) ──
+
+function UrlInput({ value, onChange, error, placeholder }: {
+  value: string
+  onChange: (v: string) => void
+  error: string | null
+  placeholder?: string
+}) {
+  return (
+    <div className="space-y-1">
+      <Input
+        placeholder={placeholder ?? 'https://wa.me/55...'}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        className={error ? 'border-red-400 focus-visible:ring-red-400' : ''}
+      />
+      {error ? (
+        <p className="text-xs text-red-500 flex items-center gap-1">
+          <AlertCircle className="h-3 w-3" />{error}
+        </p>
+      ) : value && !validateUrl(value) ? (
+        <p className="text-xs text-muted-foreground">
+          Será salvo como: <span className="font-mono">{normalizeUrl(value)}</span>
+        </p>
+      ) : null}
+    </div>
+  )
+}
+
 // ─── Main component ──────────────────────────────────────────────────────────
 
 export default function EmailTrackingPage() {
@@ -231,35 +260,6 @@ export default function EmailTrackingPage() {
     if (ua.includes('Firefox')) return `Firefox · ${ua.match(/Firefox\/([\d.]+)/)?.[1]?.split('.')[0] ?? ''}`
     if (ua.includes('Safari'))  return 'Safari'
     return ua.slice(0, 40)
-  }
-
-  // ── URL input helper ──────────────────────────────────────────────────────
-
-  function UrlInput({ value, onChange, error, placeholder }: {
-    value: string
-    onChange: (v: string) => void
-    error: string | null
-    placeholder?: string
-  }) {
-    return (
-      <div className="space-y-1">
-        <Input
-          placeholder={placeholder ?? 'https://wa.me/55...'}
-          value={value}
-          onChange={e => onChange(e.target.value)}
-          className={error ? 'border-red-400 focus-visible:ring-red-400' : ''}
-        />
-        {error ? (
-          <p className="text-xs text-red-500 flex items-center gap-1">
-            <AlertCircle className="h-3 w-3" />{error}
-          </p>
-        ) : value && !validateUrl(value) ? (
-          <p className="text-xs text-muted-foreground">
-            Será salvo como: <span className="font-mono">{normalizeUrl(value)}</span>
-          </p>
-        ) : null}
-      </div>
-    )
   }
 
   // ─────────────────────────────────────────────────────────────────────────
