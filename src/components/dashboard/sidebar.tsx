@@ -20,6 +20,7 @@ import {
   Mail,
   FileText,
   MessageCircle,
+  MessagesSquare,
   Building2,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
@@ -58,6 +59,7 @@ const adminGroup = {
     { title: 'Email Tracking', href: '/dashboard/admin/email-tracking',     icon: Mail,          roles: ['super_admin'] },
     { title: 'Contratos',      href: '/dashboard/admin/contratos',          icon: FileText,      roles: ['super_admin'] },
     { title: 'WhatsApp',       href: '/dashboard/admin/whatsapp-templates', icon: MessageCircle, roles: ['super_admin'] },
+    { title: 'Conversas',      href: '/dashboard/admin/conversas',          icon: MessagesSquare, roles: ['super_admin'] },
   ],
 }
 
