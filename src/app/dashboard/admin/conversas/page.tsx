@@ -20,6 +20,7 @@ interface SearchResult {
 interface Message {
   messageId: number
   sessionId: number | null
+  sessionStartedAt: string | null
   incoming: boolean
   content: string
   type: number
@@ -73,6 +74,14 @@ function formatDayLabel(ts: string): string {
   if (d.toDateString() === today.toDateString()) return 'Hoje'
   if (d.toDateString() === yesterday.toDateString()) return 'Ontem'
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
+}
+
+function formatSessionLabel(ts: string | null): string {
+  if (!ts) return 'Sessão'
+  const d = new Date(ts)
+  const date = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  const time = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+  return `Sessão · ${date} ${time}`
 }
 
 function initials(name: string | null, phone: string): string {
@@ -437,9 +446,18 @@ export default function ConversasAdminPage() {
             ) : (
               messages.map((msg, i) => {
                 const prev = messages[i - 1]
-                const showDay = !prev || dayKey(prev.timestamp) !== dayKey(msg.timestamp)
+                const showSession = msg.sessionId != null && msg.sessionId !== prev?.sessionId
+                // Evita divisor de dia redundante quando já há divisor de sessão.
+                const showDay = !showSession && (!prev || dayKey(prev.timestamp) !== dayKey(msg.timestamp))
                 return (
                   <div key={msg.messageId} className="space-y-1.5">
+                    {showSession && (
+                      <div className="flex justify-center py-1.5">
+                        <span className="rounded-full bg-primary/15 px-3 py-0.5 text-[11px] font-medium text-foreground/80">
+                          {formatSessionLabel(msg.sessionStartedAt)}
+                        </span>
+                      </div>
+                    )}
                     {showDay && (
                       <div className="flex justify-center py-1">
                         <span className="rounded-md bg-black/10 px-2 py-0.5 text-[11px] text-neutral-700 dark:bg-white/10 dark:text-neutral-200">
