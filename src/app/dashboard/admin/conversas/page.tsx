@@ -87,10 +87,26 @@ function initials(name: string | null, phone: string): string {
 const IMAGE_RE = /\.(png|jpe?g|gif|webp|bmp|svg)(\?|$)/i
 const AUDIO_RE = /\.(ogg|mp3|opus|m4a|wav|aac)(\?|$)/i
 
+// Mapeamento do campo "type" do StormBot (enum MessageType).
+// 0 Unknown, 1 Text, 2 Image, 3 Audio, 4 Video, 5 File, 6 Document,
+// 7 Template, 8 Interactive, 9 System.
+const MEDIA_TYPES: Record<number, { emoji: string; label: string }> = {
+  2: { emoji: '🖼️', label: 'Imagem' },
+  3: { emoji: '🎵', label: 'Áudio' },
+  4: { emoji: '🎬', label: 'Vídeo' },
+  5: { emoji: '📎', label: 'Arquivo' },
+  6: { emoji: '📄', label: 'Documento' },
+  7: { emoji: '🔔', label: 'Modelo' },
+  8: { emoji: '🔘', label: 'Interativo' },
+  9: { emoji: '⚙️', label: 'Sistema' },
+}
+
 // ─── Bolha de mensagem ──────────────────────────────────────────────────────
 
 function MessageBubble({ msg }: { msg: Message }) {
   const outgoing = !msg.incoming // enviada pelo bot/Storm → direita (verde)
+  const hasText = !!msg.content && msg.content.trim().length > 0
+  const media = MEDIA_TYPES[msg.type]
   return (
     <div className={`flex ${outgoing ? 'justify-end' : 'justify-start'} px-2`}>
       <div
@@ -122,8 +138,14 @@ function MessageBubble({ msg }: { msg: Message }) {
             📎 Abrir anexo
           </a>
         )}
-        {msg.content && (
+        {hasText && (
           <p className="whitespace-pre-wrap break-words leading-snug">{msg.content}</p>
+        )}
+        {!hasText && media && (
+          <p className="flex items-center gap-1 italic leading-snug text-neutral-500 dark:text-neutral-400">
+            <span>{media.emoji}</span>
+            <span>{media.label}</span>
+          </p>
         )}
         <span className="mt-0.5 block text-right text-[10px] leading-none text-neutral-500 dark:text-neutral-400">
           {formatTime(msg.timestamp)}
