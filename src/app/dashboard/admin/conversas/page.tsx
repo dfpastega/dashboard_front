@@ -27,8 +27,20 @@ interface Message {
   source: string | null
   timestamp: string
   fileUrl: string | null
+  imageUrl: string | null
+  imageCaption: string | null
+  feedback: MessageFeedback | null
   sender: string | null
   receiver: string | null
+}
+
+interface MessageFeedback {
+  isApproved: boolean | null
+  hasAudioFeedback: boolean
+  audioFeedbackUrl: string | null
+  transcription: string | null
+  hasGrammarIssues: boolean
+  grammarErrors: string | null
 }
 
 interface ConversationResponse {
@@ -112,9 +124,54 @@ const MEDIA_TYPES: Record<number, { emoji: string; label: string }> = {
 
 // ─── Bolha de mensagem ──────────────────────────────────────────────────────
 
+// Cartão de feedback da StormAI (análise do áudio do aluno).
+function FeedbackCard({ msg, fb }: { msg: Message; fb: MessageFeedback }) {
+  return (
+    <div className="flex justify-center px-2">
+      <div className="w-full max-w-[85%] rounded-lg border border-primary/25 bg-primary/5 px-3 py-2 text-sm shadow-sm">
+        <div className="mb-1.5 flex flex-wrap items-center gap-2 text-xs font-semibold text-foreground/80">
+          <span>🤖 Feedback StormAI</span>
+          {fb.isApproved === true && (
+            <span className="rounded bg-green-500/15 px-1.5 py-0.5 text-green-700 dark:text-green-400">✓ Aprovado</span>
+          )}
+          {fb.isApproved === false && (
+            <span className="rounded bg-red-500/15 px-1.5 py-0.5 text-red-700 dark:text-red-400">✗ Não aprovado</span>
+          )}
+        </div>
+        {fb.transcription && (
+          <p className="mb-1 leading-snug">
+            <span className="text-muted-foreground">Transcrição: </span>
+            <span className="italic">“{fb.transcription}”</span>
+          </p>
+        )}
+        {fb.hasGrammarIssues && fb.grammarErrors && (
+          <p className="mb-1 leading-snug text-amber-700 dark:text-amber-400">
+            <span className="font-medium">Gramática: </span>
+            {fb.grammarErrors}
+          </p>
+        )}
+        {fb.audioFeedbackUrl && (
+          <audio controls src={fb.audioFeedbackUrl} className="mt-1 w-full max-w-xs" />
+        )}
+        <span className="mt-1 block text-right text-[10px] leading-none text-muted-foreground">
+          {formatTime(msg.timestamp)}
+        </span>
+      </div>
+    </div>
+  )
+}
+
 function MessageBubble({ msg }: { msg: Message }) {
+  if (msg.feedback) return <FeedbackCard msg={msg} fb={msg.feedback} />
+
   const outgoing = !msg.incoming // enviada pelo bot/Storm → direita (verde)
   const hasText = !!msg.content && msg.content.trim().length > 0
+  // Imagem: prioriza a URL do rawJson (imagens do bot); cai p/ fileUrl se for imagem.
+  const imgSrc = msg.imageUrl || (msg.fileUrl && IMAGE_RE.test(msg.fileUrl) ? msg.fileUrl : null)
+  const audioSrc = msg.fileUrl && AUDIO_RE.test(msg.fileUrl) ? msg.fileUrl : null
+  const fileLink =
+    msg.fileUrl && !IMAGE_RE.test(msg.fileUrl) && !AUDIO_RE.test(msg.fileUrl) ? msg.fileUrl : null
+  const hasMedia = !!(imgSrc || audioSrc || fileLink)
   const media = MEDIA_TYPES[msg.type]
   return (
     <div className={`flex ${outgoing ? 'justify-end' : 'justify-start'} px-2`}>
@@ -126,20 +183,21 @@ function MessageBubble({ msg }: { msg: Message }) {
             : 'bg-white text-neutral-900 dark:bg-[#202c33] dark:text-neutral-50 rounded-tl-none',
         ].join(' ')}
       >
-        {msg.fileUrl && IMAGE_RE.test(msg.fileUrl) && (
+        {imgSrc && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={msg.fileUrl}
-            alt="anexo"
+            src={imgSrc}
+            alt={msg.imageCaption || 'imagem'}
             className="mb-1 max-h-64 rounded-md object-contain"
           />
         )}
-        {msg.fileUrl && AUDIO_RE.test(msg.fileUrl) && (
-          <audio controls src={msg.fileUrl} className="mb-1 max-w-full" />
+        {msg.imageCaption && (
+          <p className="mb-1 text-xs text-neutral-600 dark:text-neutral-300">{msg.imageCaption}</p>
         )}
-        {msg.fileUrl && !IMAGE_RE.test(msg.fileUrl) && !AUDIO_RE.test(msg.fileUrl) && (
+        {audioSrc && <audio controls src={audioSrc} className="mb-1 max-w-full" />}
+        {fileLink && (
           <a
-            href={msg.fileUrl}
+            href={fileLink}
             target="_blank"
             rel="noreferrer"
             className="mb-1 block text-xs font-medium underline underline-offset-2 opacity-90"
@@ -150,7 +208,7 @@ function MessageBubble({ msg }: { msg: Message }) {
         {hasText && (
           <p className="whitespace-pre-wrap break-words leading-snug">{msg.content}</p>
         )}
-        {!hasText && media && (
+        {!hasText && !hasMedia && media && (
           <p className="flex items-center gap-1 italic leading-snug text-neutral-500 dark:text-neutral-400">
             <span>{media.emoji}</span>
             <span>{media.label}</span>
