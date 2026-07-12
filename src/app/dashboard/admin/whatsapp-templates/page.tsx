@@ -1051,6 +1051,7 @@ function SendTab() {
   const [params, setParams] = useState<string[]>([])
   const [imageUrl, setImageUrl] = useState('')
   const [csvFile, setCsvFile] = useState<File | null>(null)
+  const [bulkImageUrl, setBulkImageUrl] = useState('')
   const [sending, setSending] = useState(false)
   const [bulkResults, setBulkResults] = useState<BulkResult[] | null>(null)
   const [singleResult, setSingleResult] = useState<{ success: boolean; messageId?: string; error?: string } | null>(null)
@@ -1143,9 +1144,11 @@ function SendTab() {
         setSingleResult({ success: true, messageId: data.messageId })
       } else {
         if (!csvFile) { alert('Selecione um arquivo CSV.'); setSending(false); return }
+        if (getHeaderType() === 'image' && !bulkImageUrl.trim()) { alert('Informe a URL da imagem para o lote.'); setSending(false); return }
         const formData = new FormData()
         formData.append('account', account); formData.append('templateName', selectedTemplate.name)
         formData.append('locale', selectedTemplate.language); formData.append('file', csvFile)
+        if (getHeaderType() === 'image') formData.append('imageUrl', bulkImageUrl.trim())
         const { data } = await api.post('/api/whatsapp/send/bulk', formData, { headers: { 'Content-Type': undefined as any } })
         setBulkResults(data.results)
       }
@@ -1295,6 +1298,13 @@ function SendTab() {
 
                 {sendMode === 'bulk' && (
                   <div className="space-y-4">
+                    {getHeaderType() === 'image' && (
+                      <div className="space-y-1.5">
+                        <Label className="flex items-center gap-1.5"><Image className="h-3.5 w-3.5" />URL da imagem <span className="text-red-500">*</span></Label>
+                        <Input placeholder="https://exemplo.com/imagem.jpg" value={bulkImageUrl} onChange={e => setBulkImageUrl(e.target.value)} />
+                        <p className="text-xs text-muted-foreground">Mesma imagem usada para todos os números do lote</p>
+                      </div>
+                    )}
                     <div className="rounded-lg bg-muted px-3 py-2.5 space-y-1.5">
                       <p className="text-sm font-medium">Formato CSV</p>
                       <p className="text-xs font-mono text-muted-foreground break-all">{csvColumns}</p>
