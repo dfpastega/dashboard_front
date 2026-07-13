@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Search, UserPlus, Pencil, Trash2, Star, StarOff, X, Plus } from 'lucide-react'
+import { Search, UserPlus, Pencil, Trash2, Star, StarOff, X, Plus, KeyRound } from 'lucide-react'
 
 interface UserContractInfo {
   contractId: string
@@ -76,6 +76,8 @@ export default function UsuariosAdminPage() {
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false)
   const [createdUserInfo, setCreatedUserInfo] = useState<{ email: string; password: string; name?: string } | null>(null)
   const [sendingEmail, setSendingEmail] = useState(false)
+  const [passwordDialogMode, setPasswordDialogMode] = useState<'created' | 'reset'>('created')
+  const [resettingUserId, setResettingUserId] = useState<string | null>(null)
 
   useEffect(() => {
     fetchUsers()
@@ -128,6 +130,7 @@ export default function UsuariosAdminPage() {
       setCreateDialogOpen(false)
       setCreateFormData({ name: '', email: '', roleId: 'user', contractId: 'none' })
       setCreatedUserInfo({ email: data.user.email, password: data.tempPassword, name: data.user.name })
+      setPasswordDialogMode('created')
       setPasswordDialogOpen(true)
       fetchUsers()
     } catch (error: any) {
@@ -143,12 +146,29 @@ export default function UsuariosAdminPage() {
         email: createdUserInfo.email,
         name: createdUserInfo.name,
         tempPassword: createdUserInfo.password,
+        mode: passwordDialogMode,
       })
-      alert('Email de boas-vindas enviado com sucesso!')
+      alert(passwordDialogMode === 'reset' ? 'Email com a nova senha enviado!' : 'Email de boas-vindas enviado com sucesso!')
     } catch (error: any) {
-      alert(error.response?.data?.error || 'Erro ao enviar email de boas-vindas')
+      alert(error.response?.data?.error || 'Erro ao enviar email')
     } finally {
       setSendingEmail(false)
+    }
+  }
+
+  const handleResetPassword = async (user: User) => {
+    if (!confirm(`Resetar a senha de ${user.name || user.email}? Uma nova senha temporária será gerada e o usuário precisará trocá-la no próximo acesso.`)) return
+    try {
+      setResettingUserId(user.id)
+      const { data } = await api.post(`/api/admin/users/${user.id}/reset-password`)
+      setCreatedUserInfo({ email: data.user.email, password: data.tempPassword, name: data.user.name })
+      setPasswordDialogMode('reset')
+      setPasswordDialogOpen(true)
+      fetchUsers()
+    } catch (error: any) {
+      alert(error.response?.data?.error || 'Erro ao resetar senha')
+    } finally {
+      setResettingUserId(null)
     }
   }
 
@@ -349,10 +369,13 @@ export default function UsuariosAdminPage() {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right space-x-2">
-                          <Button variant="ghost" size="icon" onClick={() => handleEditUser(user)}>
+                          <Button variant="ghost" size="icon" onClick={() => handleEditUser(user)} title="Editar">
                             <Pencil className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="icon" onClick={() => handleDeleteUser(user.id)}>
+                          <Button variant="ghost" size="icon" onClick={() => handleResetPassword(user)} disabled={resettingUserId === user.id} title="Resetar senha">
+                            <KeyRound className="h-4 w-4 text-amber-600" />
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => handleDeleteUser(user.id)} title="Excluir">
                             <Trash2 className="h-4 w-4 text-red-500" />
                           </Button>
                         </TableCell>
@@ -520,7 +543,7 @@ export default function UsuariosAdminPage() {
       <Dialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Usuário Criado com Sucesso!</DialogTitle>
+            <DialogTitle>{passwordDialogMode === 'reset' ? 'Senha Redefinida!' : 'Usuário Criado com Sucesso!'}</DialogTitle>
             <DialogDescription>Anote a senha temporária abaixo e envie ao usuário</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
