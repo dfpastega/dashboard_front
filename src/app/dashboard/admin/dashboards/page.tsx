@@ -31,7 +31,7 @@ import {
 } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
-import { Plus, Pencil, Trash2, Eye, EyeOff, Loader2 } from 'lucide-react'
+import { Plus, Pencil, Trash2, Eye, EyeOff, Loader2, Users, UserPlus, X } from 'lucide-react'
 import { api } from '@/lib/api'
 import { Checkbox } from '@/components/ui/checkbox'
 
@@ -51,6 +51,22 @@ interface Dashboard {
 interface DashboardPermission {
   id: string
   roleId: string
+  canView: boolean
+  canExport: boolean
+}
+
+interface AdminUser {
+  id: string
+  name?: string
+  email: string
+  roleId: string
+}
+
+interface DashboardAssignment {
+  userId: string
+  name: string | null
+  email: string | null
+  roleId: string | null
   canView: boolean
   canExport: boolean
 }
@@ -87,6 +103,65 @@ export default function DashboardsAdminPage() {
   })
   const [selectedRoles, setSelectedRoles] = useState<{ [key: string]: { canView: boolean; canExport: boolean } }>({})
   const [submitting, setSubmitting] = useState(false)
+
+  // Atribuição por usuário
+  const [assignDashboard, setAssignDashboard] = useState<Dashboard | null>(null)
+  const [assignments, setAssignments] = useState<DashboardAssignment[]>([])
+  const [allUsers, setAllUsers] = useState<AdminUser[]>([])
+  const [assignLoading, setAssignLoading] = useState(false)
+  const [assignUserId, setAssignUserId] = useState('')
+  const [assignSubmitting, setAssignSubmitting] = useState(false)
+
+  const roleLabel = (roleId: string) => ROLES.find((r) => r.id === roleId)?.label ?? roleId
+  const availableUsers = allUsers.filter((u) => !assignments.some((a) => a.userId === u.id))
+
+  const openAssignDialog = async (dashboard: Dashboard) => {
+    setAssignDashboard(dashboard)
+    setAssignUserId('')
+    setAssignLoading(true)
+    try {
+      const [aRes, uRes] = await Promise.all([
+        api.get(`/api/dashboards/admin/${dashboard.id}/assignments`),
+        allUsers.length ? Promise.resolve({ data: allUsers }) : api.get('/api/admin/users'),
+      ])
+      setAssignments(aRes.data ?? [])
+      if (!allUsers.length) setAllUsers(uRes.data ?? [])
+    } catch (error: any) {
+      console.error('Erro ao carregar atribuições:', error)
+      alert(error.response?.data?.error || 'Erro ao carregar atribuições')
+    } finally {
+      setAssignLoading(false)
+    }
+  }
+
+  const refreshAssignments = async (dashboardId: string) => {
+    const { data } = await api.get(`/api/dashboards/admin/${dashboardId}/assignments`)
+    setAssignments(data ?? [])
+  }
+
+  const handleAssignUser = async () => {
+    if (!assignDashboard || !assignUserId) return
+    try {
+      setAssignSubmitting(true)
+      await api.post('/api/dashboards/admin/assign', { userId: assignUserId, dashboardId: assignDashboard.id })
+      setAssignUserId('')
+      await refreshAssignments(assignDashboard.id)
+    } catch (error: any) {
+      alert(error.response?.data?.error || 'Erro ao atribuir dashboard')
+    } finally {
+      setAssignSubmitting(false)
+    }
+  }
+
+  const handleUnassign = async (userId: string) => {
+    if (!assignDashboard) return
+    try {
+      await api.delete('/api/dashboards/admin/assign', { data: { userId, dashboardId: assignDashboard.id } })
+      await refreshAssignments(assignDashboard.id)
+    } catch (error: any) {
+      alert(error.response?.data?.error || 'Erro ao remover atribuição')
+    }
+  }
 
   useEffect(() => {
     fetchDashboards()
@@ -362,7 +437,16 @@ export default function DashboardsAdminPage() {
                         <Button
                           variant="outline"
                           size="sm"
+                          onClick={() => openAssignDialog(dashboard)}
+                          title="Atribuir a usuários"
+                        >
+                          <Users className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
                           onClick={() => handleOpenDialog(dashboard)}
+                          title="Editar"
                         >
                           <Pencil className="h-4 w-4" />
                         </Button>
@@ -569,6 +653,78 @@ export default function DashboardsAdminPage() {
                 'Criar Dashboard'
               )}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog de Atribuição por Usuário */}
+      <Dialog open={!!assignDashboard} onOpenChange={(o) => { if (!o) setAssignDashboard(null) }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Atribuir a usuários</DialogTitle>
+            <DialogDescription>
+              {assignDashboard?.name} — acesso direto ao dashboard, independente da role do usuário.
+            </DialogDescription>
+          </DialogHeader>
+
+          {assignLoading ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Adicionar usuário */}
+              <div className="flex gap-2">
+                <Select value={assignUserId} onValueChange={setAssignUserId}>
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder="Selecione um usuário..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableUsers.length === 0 ? (
+                      <div className="px-2 py-1.5 text-sm text-muted-foreground">Todos os usuários já atribuídos</div>
+                    ) : (
+                      availableUsers.map((u) => (
+                        <SelectItem key={u.id} value={u.id}>
+                          {(u.name || u.email)} ({u.email})
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+                <Button onClick={handleAssignUser} disabled={!assignUserId || assignSubmitting}>
+                  {assignSubmitting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <><UserPlus className="h-4 w-4 mr-1" />Atribuir</>
+                  )}
+                </Button>
+              </div>
+
+              {/* Lista de atribuídos */}
+              <div className="border rounded-lg divide-y max-h-72 overflow-y-auto">
+                {assignments.length === 0 ? (
+                  <p className="px-3 py-6 text-center text-sm text-muted-foreground">Nenhum usuário atribuído.</p>
+                ) : (
+                  assignments.map((a) => (
+                    <div key={a.userId} className="flex items-center justify-between px-3 py-2">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium">{a.name || a.email}</p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {a.email}{a.roleId ? ` · ${roleLabel(a.roleId)}` : ''}
+                        </p>
+                      </div>
+                      <Button variant="ghost" size="icon" onClick={() => handleUnassign(a.userId)} title="Remover atribuição">
+                        <X className="h-4 w-4 text-red-500" />
+                      </Button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAssignDashboard(null)}>Fechar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
