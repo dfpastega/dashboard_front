@@ -41,17 +41,34 @@ export default function DynamicDashboardPage() {
     setError(null)
     setNeedsContractSelection(false)
 
-    // Se o usuário tem múltiplos contratos e nenhum contractId na URL, pedir seleção
-    if (contracts.length > 1 && !contractId) {
-      setNeedsContractSelection(true)
-      setLoading(false)
-      return
-    }
-
     try {
-      const url = contractId
-        ? `/dashboards/${slug}/iframe?contractId=${contractId}`
-        : `/dashboards/${slug}/iframe`
+      // Descobre o filterType do dashboard — só dashboards filtrados por
+      // contrato exigem a seleção de contrato.
+      let filterType = 'none'
+      try {
+        const { data: list } = await api.get('/api/dashboards')
+        const dash = (list ?? []).find((d: Dashboard) => d.slug === slug)
+        if (dash?.filterType) filterType = dash.filterType
+      } catch {
+        /* na dúvida, segue sem exigir contrato */
+      }
+
+      const needsContract = filterType === 'contract_id'
+
+      // Pede seleção só quando o dashboard filtra por contrato e há mais de um.
+      if (needsContract && contracts.length > 1 && !contractId) {
+        setNeedsContractSelection(true)
+        setLoading(false)
+        return
+      }
+
+      const effectiveContractId = needsContract
+        ? (contractId ?? (contracts.length === 1 ? contracts[0].id : null))
+        : null
+
+      const url = effectiveContractId
+        ? `/api/dashboards/${slug}/iframe?contractId=${encodeURIComponent(effectiveContractId)}`
+        : `/api/dashboards/${slug}/iframe`
 
       const { data } = await api.get(url)
       setIframeUrl(data.iframeUrl)
