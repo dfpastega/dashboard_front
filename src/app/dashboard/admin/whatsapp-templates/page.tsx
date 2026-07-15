@@ -1054,6 +1054,7 @@ function SendTab() {
   const [bulkImageUrl, setBulkImageUrl] = useState('')
   const [sending, setSending] = useState(false)
   const [bulkResults, setBulkResults] = useState<BulkResult[] | null>(null)
+  const [bulkProgress, setBulkProgress] = useState<{ processed: number; sent: number; failed: number; total: number } | null>(null)
   const [singleResult, setSingleResult] = useState<{ success: boolean; messageId?: string; error?: string } | null>(null)
 
   useEffect(() => { fetchTemplates() }, [account])
@@ -1133,9 +1134,44 @@ function SendTab() {
     URL.revokeObjectURL(url)
   }
 
+  // O lote roda em background no servidor; acompanhamos o progresso por polling
+  // no dispatch log (o envio pode levar minutos e estoura o limite de 30s do
+  // Heroku para a resposta HTTP).
+  async function pollBatchUntilDone(batchId: string, total: number) {
+    const startedAt = Date.now()
+    const MAX_MS = 30 * 60 * 1000 // 30 min
+
+    while (Date.now() - startedAt < MAX_MS) {
+      await new Promise(r => setTimeout(r, 2000))
+      try {
+        const { data } = await api.get(`/api/whatsapp/batches/${batchId}`)
+        setBulkProgress({
+          processed: data.processed ?? 0,
+          sent: data.sent ?? 0,
+          failed: data.failed ?? 0,
+          total: data.total ?? total,
+        })
+        if (data.completed) {
+          setBulkResults(data.results ?? [])
+          setBulkProgress(null)
+          return
+        }
+      } catch {
+        /* falha pontual no polling: tenta de novo no próximo ciclo */
+      }
+    }
+
+    // Excedeu o tempo de acompanhamento: mostra o que já houver.
+    try {
+      const { data } = await api.get(`/api/whatsapp/batches/${batchId}`)
+      setBulkResults(data.results ?? [])
+    } catch { /* ignore */ }
+    setBulkProgress(null)
+  }
+
   async function handleSend() {
     if (!selectedTemplate) return
-    setSending(true); setSingleResult(null); setBulkResults(null)
+    setSending(true); setSingleResult(null); setBulkResults(null); setBulkProgress(null)
     try {
       if (sendMode === 'single') {
         if (!phone.trim()) { alert('Informe o número de telefone.'); setSending(false); return }
@@ -1149,8 +1185,10 @@ function SendTab() {
         formData.append('account', account); formData.append('templateName', selectedTemplate.name)
         formData.append('locale', selectedTemplate.language); formData.append('file', csvFile)
         if (getHeaderType() === 'image') formData.append('imageUrl', bulkImageUrl.trim())
+        // Responde 202 na hora com o batchId; o envio segue em background.
         const { data } = await api.post('/api/whatsapp/send/bulk', formData, { headers: { 'Content-Type': undefined as any } })
-        setBulkResults(data.results)
+        setBulkProgress({ processed: 0, sent: 0, failed: 0, total: data.total ?? 0 })
+        await pollBatchUntilDone(data.batchId, data.total ?? 0)
       }
     } catch (err: any) {
       const msg = err.response?.data?.error || 'Erro ao enviar mensagem'
@@ -1334,6 +1372,34 @@ function SendTab() {
             )}
           </div>
         </div>
+      )}
+
+      {bulkProgress && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Enviando lote...
+            </CardTitle>
+            <CardDescription>
+              {bulkProgress.processed} de {bulkProgress.total} processados
+              {' · '}{bulkProgress.sent} enviados
+              {bulkProgress.failed > 0 && ` · ${bulkProgress.failed} falhas`}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full bg-primary transition-all duration-500"
+                style={{ width: `${bulkProgress.total ? Math.round((bulkProgress.processed / bulkProgress.total) * 100) : 0}%` }}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              O envio roda no servidor (~0,5s por número) e pode levar alguns minutos. Se fechar a página,
+              o envio continua — mas você não verá o resultado final aqui.
+            </p>
+          </CardContent>
+        </Card>
       )}
 
       {bulkResults && (
