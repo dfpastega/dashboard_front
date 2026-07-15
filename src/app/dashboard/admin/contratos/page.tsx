@@ -21,7 +21,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Plus, Loader2, FileText } from 'lucide-react'
+import { Plus, Loader2, FileText, Pencil, AlertTriangle } from 'lucide-react'
 import { api } from '@/lib/api'
 
 interface Contract {
@@ -37,6 +37,10 @@ export default function ContratosPage() {
   const [saving, setSaving] = useState(false)
 
   const [formData, setFormData] = useState({ id: '', name: '' })
+
+  // Edição
+  const [editingContract, setEditingContract] = useState<Contract | null>(null)
+  const [editForm, setEditForm] = useState({ id: '', name: '' })
 
   async function fetchContracts() {
     try {
@@ -67,6 +71,39 @@ export default function ContratosPage() {
       await fetchContracts()
     } catch (error: any) {
       alert(error.response?.data?.error || 'Erro ao criar contrato')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  function openEditDialog(contract: Contract) {
+    setEditingContract(contract)
+    setEditForm({ id: contract.id, name: contract.name })
+  }
+
+  async function handleUpdate() {
+    if (!editingContract) return
+    const id = editForm.id.trim()
+    const name = editForm.name.trim()
+    if (!id || !name) {
+      alert('Preencha todos os campos.')
+      return
+    }
+    if (id !== editingContract.id) {
+      const ok = confirm(
+        `Alterar o Contract ID de "${editingContract.id}" para "${id}"?\n\n` +
+          'Os vínculos dos usuários com este contrato serão atualizados automaticamente. ' +
+          'Atenção: se o dashboard do Metabase filtra por este ID, os dados precisam usar o novo valor.'
+      )
+      if (!ok) return
+    }
+    try {
+      setSaving(true)
+      await api.put(`/api/admin/contracts/${encodeURIComponent(editingContract.id)}`, { id, name })
+      setEditingContract(null)
+      await fetchContracts()
+    } catch (error: any) {
+      alert(error.response?.data?.error || 'Erro ao atualizar contrato')
     } finally {
       setSaving(false)
     }
@@ -118,6 +155,7 @@ export default function ContratosPage() {
                   <TableHead>Contract ID</TableHead>
                   <TableHead>Nome</TableHead>
                   <TableHead>Criado em</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -126,6 +164,11 @@ export default function ContratosPage() {
                     <TableCell className="font-mono text-sm">{contract.id}</TableCell>
                     <TableCell className="font-medium">{contract.name}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{formatDate(contract.createdAt)}</TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="icon" onClick={() => openEditDialog(contract)} title="Editar contrato">
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -134,12 +177,58 @@ export default function ContratosPage() {
         </CardContent>
       </Card>
 
+      {/* Dialog de Edição */}
+      <Dialog open={!!editingContract} onOpenChange={(o) => { if (!o) setEditingContract(null) }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar contrato</DialogTitle>
+            <DialogDescription>
+              Você pode alterar o Contract ID e o nome. Os vínculos com usuários são atualizados automaticamente.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Contract ID</Label>
+              <Input
+                value={editForm.id}
+                onChange={(e) => setEditForm({ ...editForm, id: e.target.value.trim() })}
+              />
+              {editingContract && editForm.id.trim() !== editingContract.id && (
+                <p className="flex items-start gap-1.5 text-xs text-amber-600 dark:text-amber-400">
+                  <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                  <span>
+                    Alterando o ID de <strong>{editingContract.id}</strong> para <strong>{editForm.id.trim() || '—'}</strong>.
+                    Se algum dashboard do Metabase filtra por este ID, os dados precisam usar o novo valor.
+                  </span>
+                </p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label>Nome</Label>
+              <Input
+                value={editForm.name}
+                onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingContract(null)}>Cancelar</Button>
+            <Button onClick={handleUpdate} disabled={saving}>
+              {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Salvar alterações
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Novo contrato</DialogTitle>
             <DialogDescription>
-              O Contract ID é um identificador único e não pode ser alterado após a criação.
+              O Contract ID é um identificador único (pode ser editado depois, se necessário).
             </DialogDescription>
           </DialogHeader>
 
