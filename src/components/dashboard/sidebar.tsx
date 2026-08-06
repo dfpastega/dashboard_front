@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
+  Layers,
   LayoutDashboard,
   Ticket,
   Users,
@@ -60,6 +61,7 @@ const adminGroup = {
     { title: 'Contratos',      href: '/dashboard/admin/contratos',          icon: FileText,      roles: ['super_admin'] },
     { title: 'WhatsApp',       href: '/dashboard/admin/whatsapp-templates', icon: MessageCircle, roles: ['super_admin'] },
     { title: 'Conversas',      href: '/dashboard/admin/conversas',          icon: MessagesSquare, roles: ['super_admin'] },
+    { title: 'Flows Studio',   href: '/dashboard/admin/flows',              icon: Layers,        roles: ['super_admin'] },
   ],
 }
 
