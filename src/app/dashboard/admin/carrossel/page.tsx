@@ -175,6 +175,9 @@ export default function CarrosselStudioPage() {
     try {
       setSaving(true)
       const { data } = await api.put(`/api/carousels/${open.id}`, { document: doc })
+      // O backend normaliza a estrutura pelo card 1 — adotamos o resultado para
+      // a tela mostrar exatamente o que foi gravado.
+      if (data.document) setDoc(data.document)
       setDirty(false)
       setWarning(data.ready ? null : data.warning)
       if (data.ready) alert('Carrossel salvo e pronto para enviar.')
@@ -229,7 +232,18 @@ export default function CarrosselStudioPage() {
     if (doc.cards.length >= LIMITS.maxCards) {
       return alert(`O WhatsApp aceita no máximo ${LIMITS.maxCards} cards.`)
     }
-    setDoc(d => ({ ...d, cards: [...d.cards, emptyCard()] }))
+    setDoc(d => {
+      const first = d.cards[0]
+      const card = emptyCard()
+      // O card 1 define a estrutura. Sem isto, um card novo entra com um botão
+      // num carrossel de dois e a Meta recusa a mensagem inteira.
+      if (first?.button2Text?.trim() && d.buttonType === 'quick_reply') {
+        card.button2Text = first.button2Text
+        card.button2Value = `${first.button2Value || 'botao2'}_${d.cards.length + 1}`
+      }
+      if (first) card.mediaKind = first.mediaKind
+      return { ...d, cards: [...d.cards, card] }
+    })
     setSelected(doc.cards.length)
     setDirty(true)
   }
@@ -260,8 +274,12 @@ export default function CarrosselStudioPage() {
   function toggleSecondButton(on: boolean) {
     setDoc(d => ({
       ...d,
-      cards: d.cards.map(c => on
-        ? { ...c, button2Text: c.button2Text ?? 'Repetir', button2Value: c.button2Value ?? 'repetir' }
+      cards: d.cards.map((c, i) => on
+        ? {
+            ...c,
+            button2Text: c.button2Text?.trim() || 'Repetir',
+            button2Value: c.button2Value?.trim() || `repetir_${i + 1}`,
+          }
         : { ...c, button2Text: undefined, button2Value: undefined }),
     }))
     setDirty(true)
@@ -450,8 +468,9 @@ export default function CarrosselStudioPage() {
                   {hasSecond ? 'Dois botões por card' : 'Um botão por card'}
                 </Button>
                 <p className="text-xs text-muted-foreground">
-                  O WhatsApp exige o mesmo número de botões em todos os cards, então isso
-                  liga e desliga para o carrossel inteiro.
+                  O WhatsApp exige o mesmo número de botões em todos os cards. O
+                  <strong> card 1 define a estrutura</strong> e os demais são ajustados
+                  sozinhos ao salvar — inclusive os que você adicionar depois.
                 </p>
               </div>
             )}
