@@ -20,7 +20,7 @@ import {
 import {
   Plus, Loader2, Trash2, ArrowLeft, ArrowUp, ArrowDown, Eye, Send, Save,
   Layers, Image as ImageIcon, CheckCircle2, XCircle, ShieldCheck, Phone,
-  AlertTriangle, History,
+  AlertTriangle, History, Rocket, RotateCcw, Copy,
 } from 'lucide-react'
 import { api } from '@/lib/api'
 
@@ -79,6 +79,7 @@ interface TestNumber {
 interface SendRow {
   id: string
   phoneNumber: string
+  flowToken: string | null
   status: string
   errorMessage: string | null
   createdAt: string
@@ -172,6 +173,8 @@ export default function FlowsStudioPage() {
   const [selected, setSelected] = useState(0)
   const [dirty, setDirty] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [flowStatus, setFlowStatus] = useState<string>('DRAFT')
+  const [publishing, setPublishing] = useState(false)
 
   const [showNew, setShowNew] = useState(false)
   const [newName, setNewName] = useState('')
@@ -180,6 +183,7 @@ export default function FlowsStudioPage() {
   const [sending, setSending] = useState(false)
   const [sendForm, setSendForm] = useState({
     phone: '', headerText: '', bodyText: '', footerText: '', buttonText: 'Começar aula',
+    reuseFlowToken: '',
   })
 
   const [showNumbers, setShowNumbers] = useState(false)
@@ -220,6 +224,7 @@ export default function FlowsStudioPage() {
         ? data.document
         : { name: flow.name, screens: [emptyBlock('cover'), emptyBlock('ending')] }
       setOpenFlow(flow)
+      setFlowStatus(data.flow?.status ?? 'DRAFT')
       setDoc(loaded)
       setVersions(data.versions ?? [])
       setSelected(0)
@@ -291,6 +296,34 @@ export default function FlowsStudioPage() {
     }
   }
 
+  async function handlePublish() {
+    if (!openFlow) return
+    const ok = confirm(
+      'Publicar a aula na Meta.\n\n' +
+      'O que muda: o aluno deixa de ver o banner de "rascunho" no topo do Flow — ' +
+      'e so assim voce enxerga a experiencia real.\n\n' +
+      'Atencao: publicar e IRREVERSIVEL. Um Flow publicado nao volta para rascunho ' +
+      'nem pode ser excluido, apenas descontinuado.\n\nConfirmar?'
+    )
+    if (!ok) return
+    try {
+      setPublishing(true)
+      const { data } = await api.post(`/api/flows/${openFlow.id}/publish`, { confirm: true })
+      setFlowStatus(data.status)
+      alert(data.message)
+    } catch (error: any) {
+      const res = error.response?.data
+      if (res?.validationErrors?.length) {
+        setMetaErrors(res.validationErrors)
+        alert('Nao publiquei: o WhatsApp ainda aponta erros no layout. Veja no topo.')
+      } else {
+        alert(res?.error || 'Erro ao publicar')
+      }
+    } finally {
+      setPublishing(false)
+    }
+  }
+
   async function handleSend() {
     if (!openFlow) return
     if (!sendForm.phone) return alert('Escolha um número de teste.')
@@ -303,9 +336,14 @@ export default function FlowsStudioPage() {
         buttonText: sendForm.buttonText.trim() || 'Começar',
         headerText: sendForm.headerText.trim() || undefined,
         footerText: sendForm.footerText.trim() || undefined,
+        reuseFlowToken: sendForm.reuseFlowToken.trim() || undefined,
       })
       setShowSend(false)
-      alert(`${data.message}\n\nVersão ${data.version} · token ${data.flowToken}`)
+      alert(
+        `${data.message}\n\n` +
+        `Versão ${data.version} · enviada como ${data.flowStatus}\n` +
+        `${data.reusedToken ? 'Token REUTILIZADO' : 'Token novo'}: ${data.flowToken}`
+      )
       const s = await api.get(`/api/flows/${openFlow.id}/sends`)
       setSends(s.data.sends ?? [])
     } catch (error: any) {
@@ -518,17 +556,30 @@ export default function FlowsStudioPage() {
           </Button>
           <div className="min-w-0">
             <h1 className="text-xl font-bold truncate">{openFlow.name}</h1>
-            <p className="text-xs text-muted-foreground">
-              {doc.screens.length} telas
-              {versions[0] ? ` · última v${versions[0].version}` : ' · nenhuma versão salva'}
-              {dirty && ' · alterações não salvas'}
-            </p>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Badge variant={flowStatus === 'PUBLISHED' ? 'default' : 'secondary'} className="h-5">
+                {flowStatus === 'PUBLISHED' ? 'Publicada' : 'Rascunho'}
+              </Badge>
+              <span>
+                {doc.screens.length} telas
+                {versions[0] ? ` · última v${versions[0].version}` : ' · nenhuma versão salva'}
+                {dirty && ' · alterações não salvas'}
+              </span>
+            </div>
           </div>
         </div>
         <div className="flex gap-2 shrink-0">
           <Button variant="outline" onClick={handlePreview} disabled={!versions.length}>
             <Eye className="h-4 w-4 mr-2" /> Pré-visualizar
           </Button>
+          {flowStatus !== 'PUBLISHED' && (
+            <Button variant="outline" onClick={handlePublish}
+              disabled={publishing || !versions.length}
+              title="Remove o banner de rascunho para o aluno. Irreversível.">
+              {publishing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Rocket className="h-4 w-4 mr-2" />}
+              Publicar
+            </Button>
+          )}
           <Button variant="outline" onClick={() => setShowSend(true)} disabled={!versions.length}>
             <Send className="h-4 w-4 mr-2" /> Enviar teste
           </Button>
@@ -550,6 +601,21 @@ export default function FlowsStudioPage() {
                 • {e.message} {e.path && <code className="text-xs">({e.path})</code>}
               </div>
             ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {flowStatus !== 'PUBLISHED' && versions.length > 0 && (
+        <Card className="border-amber-200 bg-amber-50/50 dark:bg-amber-950/20">
+          <CardContent className="flex items-start gap-3 pt-6 text-sm">
+            <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-medium">Em rascunho o aluno vê um aviso</p>
+              <p className="text-muted-foreground">
+                O WhatsApp exibe um banner de rascunho no topo do Flow. Para ver a
+                experiência real do aluno, publique — mas lembre que publicar não tem volta.
+              </p>
+            </div>
           </CardContent>
         </Card>
       )}
@@ -813,13 +879,25 @@ export default function FlowsStudioPage() {
             ) : (
               <div className="space-y-1.5 max-h-48 overflow-y-auto text-sm">
                 {sends.map(s => (
-                  <div key={s.id} className="flex items-center justify-between border-b pb-1.5 last:border-0">
-                    <div className="flex items-center gap-2">
+                  <div key={s.id} className="flex items-center justify-between gap-2 border-b pb-1.5 last:border-0">
+                    <div className="flex items-center gap-2 min-w-0">
                       <Badge variant={s.status === 'sent' ? 'secondary' : 'destructive'}>{s.status}</Badge>
-                      <span className="font-mono text-xs">{s.phoneNumber}</span>
+                      <span className="font-mono text-xs shrink-0">{s.phoneNumber}</span>
+                      {s.flowToken && (
+                        <button
+                          className="flex items-center gap-1 text-xs text-muted-foreground truncate hover:text-foreground"
+                          title="Copiar flow_token para testar reabertura"
+                          onClick={() => {
+                            navigator.clipboard.writeText(s.flowToken ?? '')
+                            setSendForm(f => ({ ...f, reuseFlowToken: s.flowToken ?? '' }))
+                          }}>
+                          <Copy className="h-3 w-3 shrink-0" />
+                          <span className="truncate">{s.flowToken.split(':').pop()}</span>
+                        </button>
+                      )}
                     </div>
-                    <span className="text-xs text-muted-foreground">
-                      {new Date(s.createdAt).toLocaleString('pt-BR')}
+                    <span className="text-xs text-muted-foreground shrink-0">
+                      {new Date(s.createdAt).toLocaleTimeString('pt-BR')}
                     </span>
                   </div>
                 ))}
@@ -836,7 +914,9 @@ export default function FlowsStudioPage() {
             <DialogTitle>Enviar para número de teste</DialogTitle>
             <DialogDescription>
               Envia a última versão salva usando a conta demo. A janela de 24h do número
-              precisa estar aberta.
+              precisa estar aberta. Esta aula sai como{' '}
+              <strong>{flowStatus === 'PUBLISHED' ? 'publicada' : 'rascunho'}</strong>
+              {flowStatus !== 'PUBLISHED' && ' — o aluno verá o banner de teste'}.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -869,6 +949,22 @@ export default function FlowsStudioPage() {
                 placeholder="Sua aula de hoje chegou! Leva uns 4 minutos."
                 onChange={e => setSendForm(f => ({ ...f, bodyText: e.target.value }))} />
             </div>
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1.5">
+                <RotateCcw className="h-3.5 w-3.5" />
+                Reaproveitar flow_token
+                <span className="text-muted-foreground text-xs">(opcional)</span>
+              </Label>
+              <Input value={sendForm.reuseFlowToken} className="font-mono text-xs"
+                placeholder="cole um token de um envio anterior"
+                onChange={e => setSendForm(f => ({ ...f, reuseFlowToken: e.target.value }))} />
+              <p className="text-xs text-muted-foreground">
+                Em branco gera um token novo (sessão nova). Colando um token já usado, você
+                testa se a Meta deixa retomar uma sessão encerrada — é assim que se descobre
+                se dá para reabrir um Flow concluído.
+              </p>
+            </div>
+
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label>Rodapé <span className="text-muted-foreground text-xs">(opcional)</span></Label>
