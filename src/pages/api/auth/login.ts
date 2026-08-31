@@ -3,6 +3,11 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import axios from 'axios'
 import cookie from 'cookie'
 
+// NOTA: esta rota parece morta — a tela de login em src/app/page.tsx chama o backend
+// direto via api.post('/auth/login') e nada no projeto referencia /api/auth/login.
+// Ela também não funcionaria como está: o backend responde { message } e já grava o
+// cookie, não devolve `token` no corpo. Mantida por ora; o header 'x-api-key' foi
+// removido porque NEXT_PUBLIC_API_KEY não existe mais (ia virar a string "undefined").
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     const response = await axios.post(
@@ -10,7 +15,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       req.body,
       {
         headers: {
-          'x-api-key': `${process.env.NEXT_PUBLIC_API_KEY}`,
           'Content-Type': 'application/json'
         }
       }
