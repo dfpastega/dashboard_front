@@ -24,6 +24,7 @@ import {
   MessageCircle,
   MessagesSquare,
   Building2,
+  Handshake,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
@@ -64,6 +65,7 @@ const adminGroup = {
     { title: 'Conversas',      href: '/dashboard/admin/conversas',          icon: MessagesSquare, roles: ['super_admin'] },
     { title: 'Flows Studio',   href: '/dashboard/admin/flows',              icon: Layers,        roles: ['super_admin'] },
     { title: 'Carrossel',      href: '/dashboard/admin/carrossel',          icon: GalleryHorizontalEnd, roles: ['super_admin'] },
+    { title: 'Afinidade',      href: '/dashboard/admin/afinidade',          icon: Handshake,     roles: ['super_admin'] },
   ],
 }
 
