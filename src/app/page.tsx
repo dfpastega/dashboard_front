@@ -1,13 +1,13 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
-import { api } from '@/lib/api'
+import { api, SESSION_EXPIRED_QUERY } from '@/lib/api'
 import confetti from 'canvas-confetti'
 
 export default function Home() {
@@ -20,6 +20,16 @@ export default function Home() {
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   const router = useRouter()
+
+  // Chegou aqui redirecionado pelo interceptor da api (JWT expirado -> 401).
+  // Lido via window em vez de useSearchParams para não exigir Suspense no prerender.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.has(SESSION_EXPIRED_QUERY)) {
+      setError('⏰ Sua sessão expirou. Faça login novamente.')
+      window.history.replaceState(null, '', window.location.pathname)
+    }
+  }, [])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()

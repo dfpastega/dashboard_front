@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/table'
 import { Handshake, Loader2, Upload, RefreshCw, ShieldOff, Search } from 'lucide-react'
 import { toast } from 'sonner'
-import { api } from '@/lib/api'
+import { api, handleUnauthorized } from '@/lib/api'
 
 // ─── Tipos (respostas do backend /api/affinity) ──────────────────────────────
 
@@ -125,6 +125,8 @@ export default function AfinidadePage() {
         body: form,
         credentials: 'include',
       })
+      // fetch puro não passa pelo interceptor da api: tratar sessão expirada aqui.
+      if (res.status === 401) { handleUnauthorized(); return }
       const data: UploadResult & { error?: string } = await res.json()
       if (!res.ok) throw { response: { data } }
       setUploadResult(data)

@@ -5,7 +5,7 @@ const HOME = '/'
 const DASHBOARD = '/dashboard'
 
 export function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl
+  const { pathname, searchParams } = req.nextUrl
 
   // ignore estáticos/api
   if (
@@ -19,8 +19,11 @@ export function middleware(req: NextRequest) {
 
   const token = req.cookies.get('token')?.value
 
-  // Só melhora UX: se logado e na home, manda pro dashboard
-  if (pathname === HOME && token) {
+  // Só melhora UX: se logado e na home, manda pro dashboard.
+  // Exceção: `?expired=1` — o cliente chegou aqui porque o JWT expirou (401);
+  // o cookie pode ainda existir no browser, mas já não vale. Sem essa exceção
+  // entraria em loop: / -> /dashboard -> /auth/me 401 -> / -> ...
+  if (pathname === HOME && token && !searchParams.has('expired')) {
     const url = req.nextUrl.clone()
     url.pathname = DASHBOARD
     return NextResponse.redirect(url)

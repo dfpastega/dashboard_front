@@ -32,7 +32,11 @@ export default function DashboardLayout({
         setUser({ ...data, contracts: data.contracts ?? [] })
       } catch (error) {
         console.error('Erro ao carregar usuário:', error)
-        router.push('/')
+        // 401: o interceptor da api já limpa o cookie e redireciona pro login
+        // com aviso de sessão expirada. Aqui só tratamos os demais erros.
+        if ((error as { response?: { status?: number } })?.response?.status !== 401) {
+          router.push('/')
+        }
       } finally {
         setLoading(false)
       }
