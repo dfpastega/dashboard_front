@@ -118,9 +118,15 @@ export default function AfinidadePage() {
       const form = new FormData()
       form.append('file', file)
       form.append('contractId', String(id))
-      const { data } = await api.post<UploadResult>('/api/affinity/batches', form, {
-        headers: { 'Content-Type': 'multipart/form-data' },
+      // fetch puro: o browser define o Content-Type multipart COM boundary
+      // (o axios da instância forçaria application/json e quebraria o multer).
+      const res = await fetch(`${api.defaults.baseURL}/api/affinity/batches`, {
+        method: 'POST',
+        body: form,
+        credentials: 'include',
       })
+      const data: UploadResult & { error?: string } = await res.json()
+      if (!res.ok) throw { response: { data } }
       setUploadResult(data)
       toast.success(`Lote enviado: ${data.validRows} elegíveis em ${data.chunks} chunk(s).`)
       setFile(null)
