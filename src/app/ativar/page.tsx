@@ -63,6 +63,7 @@ export default function AtivarPage() {
   const [cpf, setCpf] = useState('')
   const [birthDate, setBirthDate] = useState('')
   const [fullName, setFullName] = useState('')
+  const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [otp, setOtp] = useState('')
   const [consent, setConsent] = useState(false)
@@ -116,6 +117,10 @@ export default function AtivarPage() {
       setError('Informe seu nome completo.')
       return
     }
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) {
+      setError('Informe um email válido (usado no certificado e nota fiscal).')
+      return
+    }
     if (phone.replace(/\D/g, '').length < 10) {
       setError('Informe um número de WhatsApp válido com DDD.')
       return
@@ -143,6 +148,7 @@ export default function AtivarPage() {
       phone: phone.replace(/\D/g, ''),
       otp: otp.replace(/\D/g, ''),
       fullName: fullName.trim(),
+      email: email.trim().toLowerCase(),
     })
     setLoading(false)
     if (data.status === 'processing') {
@@ -236,6 +242,15 @@ export default function AtivarPage() {
                 <input
                   id="nome" autoComplete="name" placeholder="Como no seu documento"
                   value={fullName} onChange={(e) => setFullName(e.target.value)}
+                  disabled={step === 'codigo'}
+                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 outline-none focus:border-amber-400 disabled:opacity-60"
+                />
+              </div>
+              <div>
+                <label htmlFor="email" className="mb-1 block text-sm font-medium">Email</label>
+                <input
+                  id="email" type="email" autoComplete="email" placeholder="voce@email.com"
+                  value={email} onChange={(e) => setEmail(e.target.value)}
                   disabled={step === 'codigo'}
                   className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 outline-none focus:border-amber-400 disabled:opacity-60"
                 />
