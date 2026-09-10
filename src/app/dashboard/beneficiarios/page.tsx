@@ -24,7 +24,12 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import {
-  UserPlus, Loader2, Upload, RefreshCw, Building2, AlertCircle, Info, Eye,
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog'
+import { Textarea } from '@/components/ui/textarea'
+import {
+  UserPlus, Loader2, Upload, RefreshCw, Building2, AlertCircle, Info, Eye, EyeOff,
+  ShieldOff, Search, Users,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, handleUnauthorized } from '@/lib/api'
@@ -74,8 +79,44 @@ interface UploadResult {
   invalidRows: Array<{ line: number; reason: string }>
 }
 
-const apiError = (err: unknown, fallback: string) =>
-  (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? fallback
+interface Activated {
+  studentId: number
+  name: string
+  email: string
+  whatsappId: string
+  statusId: number
+  registrationDate: string | null
+  lastAccessDate: string | null
+  activatedAt: string
+  hash: string
+}
+
+interface LookupResult {
+  status: 'pending' | 'activated' | 'revoked' | 'not_found'
+  activatedAt?: string | null
+  revokedAt?: string | null
+  canRevoke?: boolean
+}
+
+/** Alvo de uma revogação — por linha do roster ou por CPF consultado. */
+interface RevokeTarget {
+  label: string
+  payload: { studentId: number } | { cpf: string; birthDate: string }
+}
+
+/**
+ * Mensagem para o gestor.
+ *
+ * Em 4xx o backend está explicando algo que ele pode resolver — sem vagas, fora da
+ * vigência, CPF inválido, acesso somente leitura — e nenhuma mensagem genérica daqui é
+ * melhor que aquela. Em 5xx a falha é nossa, e repassar "Erro interno." não diz o que
+ * fazer; o fallback da ação ("Não foi possível revogar") ao menos diz o que não aconteceu.
+ */
+const apiError = (err: unknown, fallback: string) => {
+  const res = (err as { response?: { status?: number; data?: { error?: string } } })?.response
+  const status = res?.status ?? 0
+  return status >= 400 && status < 500 ? res?.data?.error ?? fallback : fallback
+}
 
 function statusBadge(status: string) {
   const map: Record<string, string> = {
@@ -145,6 +186,169 @@ function SlotsCard({ slots }: { slots: Slots }) {
   )
 }
 
+// ─── Revogação ───────────────────────────────────────────────────────────────
+
+/**
+ * Confirmação com motivo obrigatório.
+ *
+ * Revogar corta o acesso de uma pessoa real ao curso e devolve a vaga ao contrato. Não é
+ * desfazível de dentro da tela: para voltar atrás é preciso incluir de novo, e quem já
+ * tinha ativado perde o histórico do vínculo. Daí o motivo obrigatório — ele vai para a
+ * auditoria e é o que responde "por que este acesso foi tirado" seis meses depois.
+ */
+function RevokeDialog({ target, onClose, onConfirm }: {
+  target: RevokeTarget | null
+  onClose: () => void
+  onConfirm: (reason: string) => Promise<void>
+}) {
+  const [reason, setReason] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => { if (target) setReason('') }, [target])
+
+  async function confirm() {
+    if (!reason.trim()) { toast.error('Informe o motivo da revogação.'); return }
+    setSaving(true)
+    try {
+      await onConfirm(reason.trim())
+      onClose()
+    } catch {
+      // O erro já virou toast em quem chamou. O diálogo fica aberto de propósito: o
+      // motivo digitado não se perde e o gestor pode tentar de novo.
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Dialog open={!!target} onOpenChange={(o) => { if (!o) onClose() }}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <ShieldOff className="h-4 w-4" />
+            Revogar benefício
+          </DialogTitle>
+          <DialogDescription>
+            <strong className="text-foreground">{target?.label}</strong> perde o acesso ao
+            curso e a vaga volta para o contrato. Para reverter é preciso incluir a pessoa
+            de novo.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-2">
+          <Label htmlFor="revoke-reason">Motivo</Label>
+          <Textarea
+            id="revoke-reason"
+            rows={3}
+            placeholder="Ex.: desligamento da empresa"
+            value={reason}
+            onChange={(e) => setReason(e.target.value.slice(0, 400))}
+          />
+          <p className="text-xs text-muted-foreground">
+            Fica registrado junto de quem pediu e quando.
+          </p>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={saving}>Cancelar</Button>
+          <Button variant="destructive" onClick={confirm} disabled={saving}>
+            {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Revogar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ─── Consulta de um beneficiário ─────────────────────────────────────────────
+
+const LOOKUP_LABEL: Record<LookupResult['status'], { text: string; className: string }> = {
+  pending:   { text: 'Convidado, ainda não ativou', className: 'bg-amber-500/15 text-amber-600 dark:text-amber-400' },
+  activated: { text: 'Ativou o benefício',          className: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' },
+  revoked:   { text: 'Benefício revogado',          className: 'bg-red-500/15 text-red-600 dark:text-red-400' },
+  not_found: { text: 'Não está na lista',           className: 'bg-muted text-muted-foreground' },
+}
+
+function LookupCard({ canWrite, onLookup, onRevoke }: {
+  canWrite: boolean
+  onLookup: (cpf: string, birthDate: string) => Promise<LookupResult | null>
+  onRevoke: (t: RevokeTarget) => void
+}) {
+  const [cpf, setCpf] = useState('')
+  const [birthDate, setBirthDate] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [result, setResult] = useState<LookupResult | null>(null)
+
+  async function search() {
+    if (!cpf.trim() || !birthDate.trim()) {
+      toast.error('Preencha o CPF e a data de nascimento.')
+      return
+    }
+    setLoading(true)
+    setResult(null)
+    try {
+      setResult(await onLookup(cpf, birthDate))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Consultar um beneficiário</CardTitle>
+        <CardDescription>
+          Como a lista enviada não pode ser lida de volta, é assim que se descobre a
+          situação de quem ainda não ativou.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-1">
+            <Label htmlFor="lk-cpf">CPF</Label>
+            <Input id="lk-cpf" inputMode="numeric" autoComplete="off" placeholder="000.000.000-00"
+                   value={cpf} onChange={(e) => setCpf(maskCpf(e.target.value))} />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="lk-nasc">Data de nascimento</Label>
+            <Input id="lk-nasc" inputMode="numeric" autoComplete="off" placeholder="DD/MM/AAAA"
+                   value={birthDate} onChange={(e) => setBirthDate(maskDate(e.target.value))} />
+          </div>
+        </div>
+        <Button variant="outline" onClick={search} disabled={loading} className="w-full">
+          {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
+          Consultar
+        </Button>
+
+        {result && (
+          <div className="flex flex-wrap items-center gap-3 rounded-md border p-3">
+            <Badge variant="outline" className={LOOKUP_LABEL[result.status].className}>
+              {LOOKUP_LABEL[result.status].text}
+            </Badge>
+            {result.activatedAt && (
+              <span className="text-xs text-muted-foreground">
+                em {new Date(result.activatedAt).toLocaleDateString('pt-BR')}
+              </span>
+            )}
+            {/* Revogar daqui só faz sentido para quem NÃO aparece no roster: os ativados
+                têm o botão na própria linha, com nome à vista. */}
+            {canWrite && result.status === 'pending' && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="ml-auto h-8 text-destructive hover:text-destructive"
+                onClick={() => onRevoke({ label: `CPF ${cpf}`, payload: { cpf, birthDate } })}
+              >
+                <ShieldOff className="mr-1.5 h-3.5 w-3.5" />
+                Revogar
+              </Button>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
 // ─── Página ──────────────────────────────────────────────────────────────────
 
 function BeneficiariosContent() {
@@ -165,6 +369,12 @@ function BeneficiariosContent() {
   const [file, setFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
   const [uploadResult, setUploadResult] = useState<UploadResult | null>(null)
+
+  // roster de ativados
+  const [activated, setActivated] = useState<Activated[]>([])
+  const [loadingActivated, setLoadingActivated] = useState(false)
+  const [revealed, setRevealed] = useState(false)
+  const [revokeTarget, setRevokeTarget] = useState<RevokeTarget | null>(null)
 
   const loadContracts = useCallback(async () => {
     try {
@@ -197,16 +407,72 @@ function BeneficiariosContent() {
     }
   }, [])
 
-  useEffect(() => {
-    // Sem `slots` o contrato não está mapeado no StormBot, e /my/batches responderia 409
-    // pelo mesmo motivo — a tela já explica isso num alerta. Buscar assim mesmo só
-    // produziria um toast de erro por cima da explicação.
-    if (selected?.slots) loadBatches(selected.id)
-  }, [selected, loadBatches])
+  const loadActivated = useCallback(async (contractId: string, reveal = false) => {
+    setLoadingActivated(true)
+    try {
+      const { data } = await api.get<Activated[]>(
+        `/api/affinity/my/activated?contractId=${encodeURIComponent(contractId)}${reveal ? '&reveal=1' : ''}`
+      )
+      setActivated(data)
+    } catch (err) {
+      toast.error(apiError(err, 'Não foi possível carregar os beneficiários ativos.'))
+    } finally {
+      setLoadingActivated(false)
+    }
+  }, [])
 
-  /** Recarrega contratos (slots) e lotes após um envio. */
+  useEffect(() => {
+    // Sem `slots` o contrato não está mapeado no StormBot, e as demais rotas responderiam
+    // 409 pelo mesmo motivo — a tela já explica isso num alerta. Buscar assim mesmo só
+    // produziria toasts de erro por cima da explicação.
+    if (!selected?.slots) return
+    loadBatches(selected.id)
+    // Troca de contrato volta ao estado mascarado: revelar é uma decisão por contrato.
+    setRevealed(false)
+    loadActivated(selected.id)
+  }, [selected, loadBatches, loadActivated])
+
+  /** Recarrega contratos (slots), lotes e roster após uma ação. */
   async function refresh(contractId: string) {
-    await Promise.all([loadContracts(), loadBatches(contractId)])
+    await Promise.all([
+      loadContracts(),
+      loadBatches(contractId),
+      loadActivated(contractId, revealed),
+    ])
+  }
+
+  async function toggleReveal() {
+    if (!selected) return
+    const next = !revealed
+    setRevealed(next)
+    await loadActivated(selected.id, next)
+  }
+
+  async function lookup(cpf: string, birthDate: string): Promise<LookupResult | null> {
+    if (!selected) return null
+    try {
+      const { data } = await api.post<LookupResult>('/api/affinity/my/beneficiaries/lookup', {
+        contractId: selected.id, cpf, birthDate,
+      })
+      return data
+    } catch (err) {
+      toast.error(apiError(err, 'Não foi possível consultar.'))
+      return null
+    }
+  }
+
+  async function revoke(reason: string) {
+    if (!selected || !revokeTarget) return
+    try {
+      await api.post('/api/affinity/my/beneficiaries/revoke', {
+        contractId: selected.id, reason, ...revokeTarget.payload,
+      })
+      toast.success('Revogação enviada. A vaga volta para o contrato em alguns instantes.')
+      setTimeout(() => refresh(selected.id), 4000)
+    } catch (err) {
+      toast.error(apiError(err, 'Não foi possível revogar.'))
+      throw err // mantém o diálogo aberto para o gestor ver o erro
+    }
   }
 
   async function addOne() {
@@ -499,6 +765,100 @@ function BeneficiariosContent() {
           </Card>
         </div>
       )}
+
+      {/* Beneficiários que ativaram — a única lista de pessoas que este modelo produz */}
+      <Card>
+        <CardHeader className="flex flex-row items-start justify-between space-y-0 gap-3">
+          <div>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              Beneficiários ativos
+            </CardTitle>
+            <CardDescription>
+              Quem já ativou e está usando o curso. Quem ainda não ativou aparece só na
+              contagem de &ldquo;aguardando&rdquo;.
+            </CardDescription>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {activated.length > 0 && (
+              <Button variant="outline" size="sm" onClick={toggleReveal} disabled={loadingActivated}>
+                {revealed ? <EyeOff className="mr-1.5 h-3.5 w-3.5" /> : <Eye className="mr-1.5 h-3.5 w-3.5" />}
+                {revealed ? 'Ocultar contatos' : 'Mostrar contatos'}
+              </Button>
+            )}
+            <Button variant="outline" size="sm" onClick={() => loadActivated(selected.id, revealed)} disabled={loadingActivated}>
+              {loadingActivated ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              <span className="sr-only">Atualizar</span>
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nome</TableHead>
+                  <TableHead>Contato</TableHead>
+                  <TableHead>Ativou em</TableHead>
+                  <TableHead>Último acesso</TableHead>
+                  {selected.canWrite && <TableHead className="text-right">Ações</TableHead>}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {activated.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={selected.canWrite ? 5 : 4} className="text-center text-muted-foreground">
+                      Ninguém ativou o benefício ainda.
+                    </TableCell>
+                  </TableRow>
+                )}
+                {activated.map((a) => (
+                  <TableRow key={a.studentId}>
+                    <TableCell className="font-medium">{a.name}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      <div className="whitespace-nowrap">{a.email}</div>
+                      <div className="whitespace-nowrap">{a.whatsappId}</div>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                      {a.activatedAt ? new Date(a.activatedAt).toLocaleDateString('pt-BR') : '—'}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                      {a.lastAccessDate ? new Date(a.lastAccessDate).toLocaleDateString('pt-BR') : 'nunca'}
+                    </TableCell>
+                    {selected.canWrite && (
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 text-destructive hover:text-destructive"
+                          onClick={() => setRevokeTarget({ label: a.name, payload: { studentId: a.studentId } })}
+                        >
+                          <ShieldOff className="mr-1.5 h-3.5 w-3.5" />
+                          Revogar
+                        </Button>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          {activated.length > 0 && !revealed && (
+            <p className="mt-3 text-xs text-muted-foreground">
+              Contatos abreviados. Foram informados pela própria pessoa ao ativar — use
+              &ldquo;Mostrar contatos&rdquo; só quando precisar falar com ela.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      <LookupCard canWrite={selected.canWrite} onLookup={lookup} onRevoke={setRevokeTarget} />
+
+      <RevokeDialog
+        target={revokeTarget}
+        onClose={() => setRevokeTarget(null)}
+        onConfirm={revoke}
+      />
 
       {/* Histórico de envios */}
       <Card>

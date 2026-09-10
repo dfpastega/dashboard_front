@@ -17,6 +17,7 @@ import {
 import { Handshake, Loader2, Upload, RefreshCw, ShieldOff, Search } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, handleUnauthorized } from '@/lib/api'
+import { maskCpf, maskDate } from '@/lib/masks'
 
 // ─── Tipos (respostas do backend /api/affinity) ──────────────────────────────
 
@@ -75,10 +76,16 @@ export default function AfinidadePage() {
   const [batches, setBatches] = useState<Batch[]>([])
   const [loadingBatches, setLoadingBatches] = useState(false)
 
-  // revogação
+  // revogação por hash (relatórios de reconciliação, onde só existe o hash)
   const [revokeHash, setRevokeHash] = useState('')
   const [revokeReason, setRevokeReason] = useState('')
   const [revoking, setRevoking] = useState(false)
+
+  // revogação por pessoa (o caso comum do suporte: "tire o benefício do CPF X")
+  const [pCpf, setPCpf] = useState('')
+  const [pBirth, setPBirth] = useState('')
+  const [pReason, setPReason] = useState('')
+  const [pRevoking, setPRevoking] = useState(false)
 
   const loadBatches = useCallback(async () => {
     setLoadingBatches(true)
@@ -154,6 +161,27 @@ export default function AfinidadePage() {
       toast.error('Falha ao enfileirar a revogação.')
     } finally {
       setRevoking(false)
+    }
+  }
+
+  async function revokeByPerson() {
+    if (!pCpf.trim() || !pBirth.trim()) { toast.error('Informe CPF e data de nascimento.'); return }
+    if (!pReason.trim()) { toast.error('Informe o motivo.'); return }
+    setPRevoking(true)
+    try {
+      const { data } = await api.post<{ hash: string; contractId: number }>(
+        '/api/affinity/eligibles/revoke-by-person',
+        { cpf: pCpf, birthDate: pBirth, reason: pReason.trim() }
+      )
+      // O hash volta porque é a chave nos relatórios de reconciliação — sem ele o
+      // operador não consegue acompanhar o que acabou de pedir.
+      toast.success(`Revogação enfileirada (contrato ${data.contractId}, hash ${data.hash.slice(0, 8)}…).`)
+      setPCpf(''); setPBirth(''); setPReason('')
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
+      toast.error(msg ?? 'Falha ao enfileirar a revogação.')
+    } finally {
+      setPRevoking(false)
     }
   }
 
@@ -317,13 +345,48 @@ export default function AfinidadePage() {
         </CardContent>
       </Card>
 
-      {/* Revogação */}
+      {/* Revogação por pessoa — o caso comum */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2"><ShieldOff className="h-4 w-4" /> Revogar elegível</CardTitle>
+          <CardTitle className="text-base flex items-center gap-2">
+            <ShieldOff className="h-4 w-4" /> Revogar por CPF
+          </CardTitle>
           <CardDescription>
-            Devolve o slot se já estava ativado. O hash aparece nos relatórios de reconciliação
-            (a resolução hash→pessoa só existe via aluno ativado).
+            O hash é calculado no servidor (o pepper não sai de lá), então basta identificar
+            a pessoa. Devolve o slot se já estava ativado.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-3 sm:grid-cols-[1fr_1fr_1fr_auto]">
+          <Input
+            placeholder="CPF"
+            inputMode="numeric"
+            value={pCpf}
+            onChange={(e) => setPCpf(maskCpf(e.target.value))}
+          />
+          <Input
+            placeholder="DD/MM/AAAA"
+            inputMode="numeric"
+            value={pBirth}
+            onChange={(e) => setPBirth(maskDate(e.target.value))}
+          />
+          <Input
+            placeholder="Motivo"
+            value={pReason}
+            onChange={(e) => setPReason(e.target.value)}
+          />
+          <Button variant="destructive" onClick={revokeByPerson} disabled={pRevoking}>
+            {pRevoking ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Revogar'}
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Revogação por hash — reconciliação */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2"><ShieldOff className="h-4 w-4" /> Revogar por hash</CardTitle>
+          <CardDescription>
+            Para quando o hash é tudo que existe — é o que aparece nos relatórios de
+            reconciliação, onde não há CPF para consultar.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
