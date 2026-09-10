@@ -42,6 +42,7 @@ interface Dashboard {
   metabaseDashboardId: number
   slug: string
   filterType: string
+  requiredModality?: string | null
   icon?: string
   orderIndex: number
   isActive: boolean
@@ -86,6 +87,14 @@ const FILTER_TYPES = [
   { value: 'none', label: 'Sem Filtro (ver tudo)' },
 ]
 
+// Exigência de modalidade — o eixo que o role NÃO cobre. Ver `required_modality`
+// em dash_dashboards: o role concede, a modalidade habilita.
+const MODALITIES = [
+  { value: 'any',      label: 'Qualquer contrato' },
+  { value: 'affinity', label: 'Só quem tem contrato de Afinidade' },
+  { value: 'standard', label: 'Só quem tem contrato Padrão (B2B)' },
+]
+
 export default function DashboardsAdminPage() {
   const [dashboards, setDashboards] = useState<Dashboard[]>([])
   const [loading, setLoading] = useState(true)
@@ -97,6 +106,7 @@ export default function DashboardsAdminPage() {
     metabaseDashboardId: '',
     slug: '',
     filterType: 'contract_id',
+    requiredModality: 'any',
     icon: '',
     orderIndex: '0',
     isActive: true,
@@ -190,6 +200,7 @@ export default function DashboardsAdminPage() {
         metabaseDashboardId: dashboard.metabaseDashboardId.toString(),
         slug: dashboard.slug,
         filterType: dashboard.filterType,
+        requiredModality: dashboard.requiredModality || 'any',
         icon: dashboard.icon || '',
         orderIndex: dashboard.orderIndex.toString(),
         isActive: dashboard.isActive,
@@ -213,6 +224,7 @@ export default function DashboardsAdminPage() {
         metabaseDashboardId: '',
         slug: '',
         filterType: 'contract_id',
+        requiredModality: 'any',
         icon: '',
         orderIndex: '0',
         isActive: true,
@@ -231,6 +243,7 @@ export default function DashboardsAdminPage() {
       metabaseDashboardId: '',
       slug: '',
       filterType: 'contract_id',
+      requiredModality: 'any',
       icon: '',
       orderIndex: '0',
       isActive: true,
@@ -290,6 +303,8 @@ export default function DashboardsAdminPage() {
         metabaseDashboardId: parseInt(formData.metabaseDashboardId),
         slug: formData.slug,
         filterType: formData.filterType,
+        // 'any' é rótulo de tela; o backend guarda null para "sem exigência".
+        requiredModality: formData.requiredModality === 'any' ? null : formData.requiredModality,
         icon: formData.icon || undefined,
         orderIndex: parseInt(formData.orderIndex),
         isActive: formData.isActive,
@@ -400,6 +415,11 @@ export default function DashboardsAdminPage() {
                     <TableCell>{dashboard.metabaseDashboardId}</TableCell>
                     <TableCell>
                       <Badge variant="outline">{dashboard.filterType}</Badge>
+                      {dashboard.requiredModality && (
+                        <Badge variant="outline" className="ml-1.5 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+                          {dashboard.requiredModality === 'affinity' ? 'Afinidade' : 'Padrão'}
+                        </Badge>
+                      )}
                     </TableCell>
                     <TableCell>{dashboard.orderIndex}</TableCell>
                     <TableCell>
@@ -560,6 +580,32 @@ export default function DashboardsAdminPage() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            {/* Exigência de modalidade */}
+            <div className="space-y-2">
+              <Label htmlFor="requiredModality">Quem pode ver</Label>
+              <Select
+                value={formData.requiredModality}
+                onValueChange={(v) => setFormData({ ...formData, requiredModality: v })}
+              >
+                <SelectTrigger id="requiredModality">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {MODALITIES.map((m) => (
+                    <SelectItem key={m.value} value={m.value}>
+                      {m.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Soma-se aos papéis marcados abaixo: o papel concede, a modalidade do
+                contrato habilita. Um dashboard de Afinidade liberado para o papel
+                &ldquo;Usuário&rdquo; sem esta restrição apareceria — vazio — para todos os
+                usuários do sistema.
+              </p>
             </div>
 
             {/* Ícone e Ordem */}
