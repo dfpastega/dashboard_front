@@ -25,6 +25,7 @@ import {
   MessagesSquare,
   Building2,
   Handshake,
+  UserPlus,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
@@ -42,6 +43,15 @@ interface NavItem {
   href: string
   icon: React.ComponentType<{ className?: string }>
   roles: string[]
+  /**
+   * Além do role, exige ao menos um contrato desta modalidade.
+   *
+   * Role e modalidade são eixos independentes: o role diz o que a pessoa pode FAZER,
+   * a modalidade do contrato diz o que existe para ela ver. Filtrar a afinidade só por
+   * role deixaria a escolha entre mostrar "Beneficiários" para todo `user` do sistema
+   * (inclusive contratos que não são afinidade) ou para nenhum.
+   */
+  requiresModality?: string
 }
 
 interface DashboardItem {
@@ -70,6 +80,7 @@ const adminGroup = {
 }
 
 const staticNavigation: NavItem[] = [
+  { title: 'Beneficiários', href: '/dashboard/beneficiarios',  icon: UserPlus, roles: ['user', 'contract_manager', 'admin', 'super_admin'], requiresModality: 'affinity' },
   { title: 'Meus Cupons',   href: '/dashboard/cupons',         icon: Ticket,   roles: ['partner', 'admin', 'super_admin'] },
   { title: 'Usuários',      href: '/dashboard/usuarios',       icon: Users,    roles: ['admin', 'super_admin'] },
   { title: 'Configurações', href: '/dashboard/configuracoes',  icon: Settings, roles: ['user', 'partner', 'contract_manager', 'admin', 'super_admin'] },
@@ -103,7 +114,10 @@ function SidebarContent({ userRole, userContracts, isCollapsed, onToggle }: {
   const multiContract = userContracts.length > 1
   const isHomePath = pathname === '/dashboard' || pathname.startsWith('/dashboard?')
   const showAdmin = adminGroup.roles.includes(userRole)
-  const staticItems = staticNavigation.filter(item => item.roles.includes(userRole))
+  const staticItems = staticNavigation.filter(item =>
+    item.roles.includes(userRole) &&
+    (!item.requiresModality || userContracts.some(c => c.modality === item.requiresModality))
+  )
 
   // Render a nav item with optional contract submenu
   function renderDashboardItem(slug: string, name: string, baseHref: string, needsContract: boolean) {
