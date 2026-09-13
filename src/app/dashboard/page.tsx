@@ -27,6 +27,17 @@ function DashboardContent() {
 
   const needsSelection = contracts.length > 1 && !contractIdParam
 
+  // Contrato de afinidade não tem dashboard de desempenho para exibir: o que interessa
+  // ao gestor é o consumo de vagas. Sem este desvio ele cairia num iframe do Metabase
+  // filtrado por um contrato que ainda não tem alunos.
+  const resolvedContract = contracts.find(c => c.id === resolvedContractId)
+  const isAffinity = resolvedContract?.modality === 'affinity'
+
+  useEffect(() => {
+    if (!isAffinity || !resolvedContractId) return
+    router.replace(`/dashboard/beneficiarios?contractId=${encodeURIComponent(resolvedContractId)}`)
+  }, [isAffinity, resolvedContractId, router])
+
   useEffect(() => {
     if (needsSelection) {
       setLoading(false)
@@ -36,6 +47,8 @@ function DashboardContent() {
       setLoading(false)
       return
     }
+    // O redirect acima já está a caminho; não gastar um token de embed à toa.
+    if (isAffinity) return
     let cancelled = false
     setLoading(true)
     setError('')
@@ -47,7 +60,7 @@ function DashboardContent() {
       .finally(() => { if (!cancelled) setLoading(false) })
 
     return () => { cancelled = true }
-  }, [resolvedContractId, needsSelection])
+  }, [resolvedContractId, needsSelection, isAffinity])
 
   if (loading) {
     return (

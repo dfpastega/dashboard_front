@@ -9,6 +9,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import Script from 'next/script'
+import { maskCpf, maskDate, maskPhone } from '@/lib/masks'
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? ''
 const TURNSTILE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? ''
@@ -21,25 +22,6 @@ declare global {
       render: (el: HTMLElement, opts: { sitekey: string; callback: (t: string) => void }) => void
     }
   }
-}
-
-function maskCpf(v: string): string {
-  const d = v.replace(/\D/g, '').slice(0, 11)
-  return d
-    .replace(/(\d{3})(\d)/, '$1.$2')
-    .replace(/(\d{3})\.(\d{3})(\d)/, '$1.$2.$3')
-    .replace(/\.(\d{3})(\d{1,2})$/, '.$1-$2')
-}
-
-function maskDate(v: string): string {
-  const d = v.replace(/\D/g, '').slice(0, 8)
-  return d.replace(/(\d{2})(\d)/, '$1/$2').replace(/(\d{2})\/(\d{2})(\d)/, '$1/$2/$3')
-}
-
-function maskPhone(v: string): string {
-  const d = v.replace(/\D/g, '').slice(0, 11)
-  if (d.length <= 10) return d.replace(/(\d{2})(\d)/, '($1) $2').replace(/(\d{4})(\d)/, '$1-$2')
-  return d.replace(/(\d{2})(\d)/, '($1) $2').replace(/(\d{5})(\d)/, '$1-$2')
 }
 
 async function post(path: string, body: object): Promise<{ ok: boolean; data: { status?: string } }> {

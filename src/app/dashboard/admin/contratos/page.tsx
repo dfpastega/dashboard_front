@@ -21,14 +21,33 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Plus, Loader2, FileText, Pencil, AlertTriangle } from 'lucide-react'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Badge } from '@/components/ui/badge'
+import { Plus, Loader2, FileText, Pencil, AlertTriangle, Handshake } from 'lucide-react'
 import { api } from '@/lib/api'
 
 interface Contract {
   id: string
   name: string
+  /** `Contracts."contractId"` no StormBot — chave da afinidade e das tabelas replicadas. */
+  stormbotContractId: number | null
+  /** 'standard' | 'affinity' — decide se a área de beneficiários aparece. */
+  modality: string
   createdAt: string
 }
+
+const MODALITIES = [
+  { value: 'standard', label: 'Padrão (B2B)' },
+  { value: 'affinity', label: 'Afinidade' },
+]
+
+const emptyForm = { id: '', name: '', stormbotContractId: '', modality: 'standard' }
 
 export default function ContratosPage() {
   const [contracts, setContracts] = useState<Contract[]>([])
@@ -36,11 +55,11 @@ export default function ContratosPage() {
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [saving, setSaving] = useState(false)
 
-  const [formData, setFormData] = useState({ id: '', name: '' })
+  const [formData, setFormData] = useState(emptyForm)
 
   // Edição
   const [editingContract, setEditingContract] = useState<Contract | null>(null)
-  const [editForm, setEditForm] = useState({ id: '', name: '' })
+  const [editForm, setEditForm] = useState(emptyForm)
 
   async function fetchContracts() {
     try {
@@ -65,9 +84,18 @@ export default function ContratosPage() {
     }
     try {
       setSaving(true)
-      await api.post('/api/admin/contracts', formData)
+      // stormbotContractId vazio: o backend deriva do próprio Contract ID quando ele é
+      // numérico, que é como os contratos existentes já funcionam.
+      await api.post('/api/admin/contracts', {
+        id: formData.id,
+        name: formData.name,
+        modality: formData.modality,
+        ...(formData.stormbotContractId.trim()
+          ? { stormbotContractId: formData.stormbotContractId.trim() }
+          : {}),
+      })
       setShowCreateDialog(false)
-      setFormData({ id: '', name: '' })
+      setFormData(emptyForm)
       await fetchContracts()
     } catch (error: any) {
       alert(error.response?.data?.error || 'Erro ao criar contrato')
@@ -78,7 +106,12 @@ export default function ContratosPage() {
 
   function openEditDialog(contract: Contract) {
     setEditingContract(contract)
-    setEditForm({ id: contract.id, name: contract.name })
+    setEditForm({
+      id: contract.id,
+      name: contract.name,
+      stormbotContractId: contract.stormbotContractId?.toString() ?? '',
+      modality: contract.modality ?? 'standard',
+    })
   }
 
   async function handleUpdate() {
@@ -99,7 +132,13 @@ export default function ContratosPage() {
     }
     try {
       setSaving(true)
-      await api.put(`/api/admin/contracts/${encodeURIComponent(editingContract.id)}`, { id, name })
+      // String vazia é enviada de propósito: o backend a lê como "desvincular do StormBot".
+      await api.put(`/api/admin/contracts/${encodeURIComponent(editingContract.id)}`, {
+        id,
+        name,
+        stormbotContractId: editForm.stormbotContractId.trim(),
+        modality: editForm.modality,
+      })
       setEditingContract(null)
       await fetchContracts()
     } catch (error: any) {
@@ -154,6 +193,8 @@ export default function ContratosPage() {
                 <TableRow>
                   <TableHead>Contract ID</TableHead>
                   <TableHead>Nome</TableHead>
+                  <TableHead>StormBot ID</TableHead>
+                  <TableHead>Modalidade</TableHead>
                   <TableHead>Criado em</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
@@ -163,6 +204,24 @@ export default function ContratosPage() {
                   <TableRow key={contract.id}>
                     <TableCell className="font-mono text-sm">{contract.id}</TableCell>
                     <TableCell className="font-medium">{contract.name}</TableCell>
+                    <TableCell className="font-mono text-sm tabular-nums">
+                      {contract.stormbotContractId ?? (
+                        <span className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
+                          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                          não mapeado
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {contract.modality === 'affinity' ? (
+                        <Badge variant="outline" className="gap-1.5 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+                          <Handshake className="h-3 w-3" />
+                          Afinidade
+                        </Badge>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">Padrão</span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-sm text-muted-foreground">{formatDate(contract.createdAt)}</TableCell>
                     <TableCell className="text-right">
                       <Button variant="ghost" size="icon" onClick={() => openEditDialog(contract)} title="Editar contrato">
@@ -211,6 +270,42 @@ export default function ContratosPage() {
                 onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
               />
             </div>
+            <div className="space-y-2">
+              <Label>StormBot Contract ID</Label>
+              <Input
+                inputMode="numeric"
+                placeholder="Ex: 61"
+                value={editForm.stormbotContractId}
+                onChange={(e) =>
+                  setEditForm({ ...editForm, stormbotContractId: e.target.value.replace(/\D/g, '') })
+                }
+              />
+              <p className="text-xs text-muted-foreground">
+                O <code className="rounded bg-muted px-1">contractId</code> deste contrato no StormBot.
+                É por ele que a afinidade encontra os elegíveis e os slots. Vazio = não mapeado.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label>Modalidade</Label>
+              <Select
+                value={editForm.modality}
+                onValueChange={(v) => setEditForm({ ...editForm, modality: v })}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {MODALITIES.map(m => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              {editForm.modality === 'affinity' && !editForm.stormbotContractId.trim() && (
+                <p className="flex items-start gap-1.5 text-xs text-amber-600 dark:text-amber-400">
+                  <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                  <span>
+                    Sem o StormBot Contract ID, a área de beneficiários não tem onde buscar
+                    elegíveis nem slots.
+                  </span>
+                </p>
+              )}
+            </div>
           </div>
 
           <DialogFooter>
@@ -249,10 +344,37 @@ export default function ContratosPage() {
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               />
             </div>
+            <div className="space-y-2">
+              <Label>StormBot Contract ID <span className="text-muted-foreground font-normal">(opcional)</span></Label>
+              <Input
+                inputMode="numeric"
+                placeholder="Deixe vazio para usar o próprio Contract ID"
+                value={formData.stormbotContractId}
+                onChange={(e) =>
+                  setFormData({ ...formData, stormbotContractId: e.target.value.replace(/\D/g, '') })
+                }
+              />
+              <p className="text-xs text-muted-foreground">
+                Se o Contract ID acima já for o número do contrato no StormBot, deixe vazio —
+                o vínculo é criado sozinho.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label>Modalidade</Label>
+              <Select
+                value={formData.modality}
+                onValueChange={(v) => setFormData({ ...formData, modality: v })}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {MODALITIES.map(m => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setShowCreateDialog(false); setFormData({ id: '', name: '' }) }}>
+            <Button variant="outline" onClick={() => { setShowCreateDialog(false); setFormData(emptyForm) }}>
               Cancelar
             </Button>
             <Button onClick={handleCreate} disabled={saving}>
