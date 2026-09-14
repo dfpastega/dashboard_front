@@ -82,13 +82,29 @@ interface UploadResult {
   invalidRows: InvalidRow[]
 }
 
-/** Diagnóstico devolvido quando o arquivo tem linhas recusadas (`needs_confirmation`). */
+type UploadMode = 'append' | 'replace'
+
+/** Diagnóstico devolvido em `needs_confirmation`. */
 interface UploadPreview {
+  mode: UploadMode
   validRows: number
   invalidRows: InvalidRow[]
   totalRows: number
   /** Cabeçalhos que o servidor reconheceu; null quando o arquivo é posicional. */
   detected: { cpf: string | null; birthDate: string | null }
+  /** Só no modo substituir: o que muda na lista do contrato. */
+  diff?: {
+    manter: number
+    incluir: number
+    remover: {
+      total: number
+      pendentes: number
+      /** Ativados que perdem o acesso — os únicos que este modelo consegue nomear. */
+      ativados: Array<{ studentId: number; name: string }>
+    }
+  }
+  /** Remoção grande demais para passar sem um segundo olhar. */
+  alertaRemocaoAlta?: boolean
 }
 
 interface Activated {
@@ -379,7 +395,14 @@ function ConfirmUploadDialog({ preview, fileName, sending, onCancel, onConfirm }
   onCancel: () => void
   onConfirm: () => void
 }) {
+  const [cienteRemocao, setCienteRemocao] = useState(false)
+
+  useEffect(() => { setCienteRemocao(false) }, [preview])
+
   if (!preview) return null
+
+  const diff = preview.diff
+  const ehSubstituicao = preview.mode === 'replace'
 
   // Agrupa por motivo: "10× CPF inválido" diz mais que 10 linhas soltas.
   const porMotivo = preview.invalidRows.reduce<Record<string, number>>((acc, r) => {
@@ -387,11 +410,16 @@ function ConfirmUploadDialog({ preview, fileName, sending, onCancel, onConfirm }
     return acc
   }, {})
 
+  const precisaCiencia = !!preview.alertaRemocaoAlta
+  const podeConfirmar = !precisaCiencia || cienteRemocao
+
   return (
     <Dialog open onOpenChange={(o) => { if (!o && !sending) onCancel() }}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Algumas linhas não podem ser enviadas</DialogTitle>
+          <DialogTitle>
+            {ehSubstituicao ? 'Confirmar a nova lista do contrato' : 'Algumas linhas não podem ser enviadas'}
+          </DialogTitle>
           <DialogDescription>
             Li <strong className="text-foreground">{preview.totalRows}</strong> linha(s) em{' '}
             <span className="font-medium">{fileName}</span>.
@@ -402,57 +430,139 @@ function ConfirmUploadDialog({ preview, fileName, sending, onCancel, onConfirm }
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div className="rounded-md border p-3 text-center">
-            <p className="text-2xl font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
-              {preview.validRows}
-            </p>
-            <p className="text-xs text-muted-foreground">serão enviados</p>
-          </div>
-          <div className="rounded-md border p-3 text-center">
-            <p className="text-2xl font-semibold tabular-nums text-amber-600 dark:text-amber-400">
-              {preview.invalidRows.length}
-            </p>
-            <p className="text-xs text-muted-foreground">ficam de fora</p>
-          </div>
-        </div>
+        {/* ── modo substituir: o que muda na lista ── */}
+        {ehSubstituicao && diff && (
+          <>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="rounded-md border p-3 text-center">
+                <p className="text-2xl font-semibold tabular-nums">{diff.manter}</p>
+                <p className="text-xs text-muted-foreground">permanecem</p>
+              </div>
+              <div className="rounded-md border p-3 text-center">
+                <p className="text-2xl font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
+                  {diff.incluir}
+                </p>
+                <p className="text-xs text-muted-foreground">entram</p>
+              </div>
+              <div className="rounded-md border p-3 text-center">
+                <p className="text-2xl font-semibold tabular-nums text-red-600 dark:text-red-400">
+                  {diff.remover.total}
+                </p>
+                <p className="text-xs text-muted-foreground">saem</p>
+              </div>
+            </div>
 
-        <div className="space-y-2">
-          <p className="text-sm font-medium">Por que ficaram de fora</p>
-          <ul className="space-y-1 text-sm text-muted-foreground">
-            {Object.entries(porMotivo).map(([motivo, n]) => (
-              <li key={motivo} className="flex gap-2">
-                <span className="tabular-nums font-medium text-foreground">{n}×</span>
-                {motivo}
-              </li>
-            ))}
-          </ul>
-          <details className="text-xs">
-            <summary className="cursor-pointer text-muted-foreground">Ver as linhas</summary>
-            <ul className="mt-1 max-h-40 overflow-y-auto text-muted-foreground">
-              {preview.invalidRows.map((r) => (
-                <li key={r.line}>linha {r.line}: {r.reason}</li>
+            {diff.remover.total > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Quem sai do contrato</p>
+
+                {diff.remover.ativados.length > 0 && (
+                  <div className="rounded-md border border-red-200 bg-red-50 p-3 dark:border-red-900 dark:bg-red-950/40">
+                    <p className="text-sm font-medium text-red-700 dark:text-red-300">
+                      {diff.remover.ativados.length} já {diff.remover.ativados.length === 1 ? 'estuda' : 'estudam'} e {diff.remover.ativados.length === 1 ? 'perde' : 'perdem'} o acesso
+                    </p>
+                    <ul className="mt-1.5 max-h-36 overflow-y-auto text-sm text-red-700 dark:text-red-300">
+                      {diff.remover.ativados.map((a) => <li key={a.studentId}>{a.name}</li>)}
+                    </ul>
+                  </div>
+                )}
+
+                {diff.remover.pendentes > 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    + {diff.remover.pendentes} convidado(s) que ainda não {diff.remover.pendentes === 1 ? 'ativou' : 'ativaram'}.
+                    Não é possível listar os nomes: quem não ativou existe só como marca embaralhada.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {precisaCiencia && (
+              <label className="flex items-start gap-2.5 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm dark:border-amber-800 dark:bg-amber-950/40">
+                <input
+                  type="checkbox"
+                  className="mt-0.5"
+                  checked={cienteRemocao}
+                  onChange={(e) => setCienteRemocao(e.target.checked)}
+                />
+                <span className="text-amber-800 dark:text-amber-200">
+                  Esta lista remove boa parte do contrato. Se a planilha veio filtrada ou
+                  incompleta, o resultado é desligamento em massa. Confirmo que a lista está
+                  completa.
+                </span>
+              </label>
+            )}
+          </>
+        )}
+
+        {/* ── linhas recusadas, nos dois modos ── */}
+        {preview.invalidRows.length > 0 && (
+          <div className="space-y-2">
+            {!ehSubstituicao && (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-md border p-3 text-center">
+                  <p className="text-2xl font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
+                    {preview.validRows}
+                  </p>
+                  <p className="text-xs text-muted-foreground">serão enviados</p>
+                </div>
+                <div className="rounded-md border p-3 text-center">
+                  <p className="text-2xl font-semibold tabular-nums text-amber-600 dark:text-amber-400">
+                    {preview.invalidRows.length}
+                  </p>
+                  <p className="text-xs text-muted-foreground">ficam de fora</p>
+                </div>
+              </div>
+            )}
+            <p className="text-sm font-medium">
+              {preview.invalidRows.length} linha(s) do arquivo ficaram de fora
+            </p>
+            <ul className="space-y-1 text-sm text-muted-foreground">
+              {Object.entries(porMotivo).map(([motivo, n]) => (
+                <li key={motivo} className="flex gap-2">
+                  <span className="tabular-nums font-medium text-foreground">{n}×</span>
+                  {motivo}
+                </li>
               ))}
             </ul>
-          </details>
-        </div>
+            <details className="text-xs">
+              <summary className="cursor-pointer text-muted-foreground">Ver as linhas</summary>
+              <ul className="mt-1 max-h-40 overflow-y-auto text-muted-foreground">
+                {preview.invalidRows.map((r) => (
+                  <li key={r.line}>linha {r.line}: {r.reason}</li>
+                ))}
+              </ul>
+            </details>
+            {ehSubstituicao && (
+              <p className="text-xs text-amber-600 dark:text-amber-400">
+                Atenção: linhas recusadas não entram na lista nova. Se alguma delas é de quem
+                deveria permanecer, essa pessoa sai do contrato.
+              </p>
+            )}
+          </div>
+        )}
 
         <p className="text-xs text-muted-foreground">
-          Quem ficar de fora pode entrar depois: corrija a planilha e envie de novo, só com
-          as linhas que faltaram.
+          Quem ficar de fora pode entrar depois: corrija a planilha e envie de novo.
         </p>
 
         <DialogFooter>
           <Button variant="outline" onClick={onCancel} disabled={sending}>Cancelar</Button>
-          <Button onClick={onConfirm} disabled={sending}>
+          <Button
+            onClick={onConfirm}
+            disabled={sending || !podeConfirmar}
+            variant={ehSubstituicao && (diff?.remover.total ?? 0) > 0 ? 'destructive' : 'default'}
+          >
             {sending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Enviar {preview.validRows}
+            {ehSubstituicao
+              ? `Aplicar${diff ? ` (${diff.remover.total} saem)` : ''}`
+              : `Enviar ${preview.validRows}`}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   )
 }
+
 
 // ─── Página ──────────────────────────────────────────────────────────────────
 
@@ -470,6 +580,7 @@ function BeneficiariosContent() {
   const [uploading, setUploading] = useState(false)
   const [uploadResult, setUploadResult] = useState<UploadResult | null>(null)
   const [dragging, setDragging] = useState(false)
+  const [mode, setMode] = useState<UploadMode>('append')
   /** Resposta `needs_confirmation`: o arquivo tem linhas recusadas e o gestor decide. */
   const [pendingConfirm, setPendingConfirm] = useState<UploadPreview | null>(null)
 
@@ -592,6 +703,7 @@ function BeneficiariosContent() {
       // O arquivo sobe de novo na confirmação. São poucos KB, e guardar o parse numa
       // sessão intermediária custaria mais do que reprocessar.
       form.append('confirm', confirm ? 'true' : 'false')
+      form.append('mode', mode)
       // fetch puro: o browser define o Content-Type multipart COM boundary
       // (o axios da instância forçaria application/json e quebraria o multer).
       const res = await fetch(`${api.defaults.baseURL}/api/affinity/my/batches`, {
@@ -612,7 +724,11 @@ function BeneficiariosContent() {
 
       setPendingConfirm(null)
       setUploadResult(data)
-      toast.success(`${data.queuedRows} beneficiário(s) enviado(s).`)
+      toast.success(
+        data.mode === 'replace'
+          ? `Lista sincronizada: ${data.keptRows} mantido(s), ${data.queuedRows} novo(s), ${data.removedRows} removido(s).`
+          : `${data.queuedRows} beneficiário(s) enviado(s).`
+      )
       setFile(null)
       setTimeout(() => refresh(selected.id), 4000)
     } catch (err) {
@@ -769,6 +885,41 @@ function BeneficiariosContent() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
+            {/* O significado do envio não dá para inferir do arquivo: uma planilha de 10
+                linhas tanto pode ser "10 contratados novos" quanto "sobraram 10 pessoas".
+                Por isso a escolha é explícita, e cada opção diz o que faz. */}
+            <div className="grid gap-2 sm:grid-cols-2">
+              {([
+                { v: 'append'  as UploadMode, t: 'Acrescentar à lista',
+                  d: 'Adiciona quem está na planilha. Ninguém perde o acesso.' },
+                { v: 'replace' as UploadMode, t: 'Substituir a lista',
+                  d: 'A planilha passa a ser a lista vigente. Quem não estiver nela sai do contrato.' },
+              ]).map((o) => (
+                <button
+                  key={o.v}
+                  type="button"
+                  onClick={() => { setMode(o.v); setUploadResult(null) }}
+                  disabled={!canAdd}
+                  className={cn(
+                    'rounded-lg border p-3 text-left transition-colors',
+                    mode === o.v
+                      ? 'border-primary bg-primary/5'
+                      : 'border-muted-foreground/25 hover:border-muted-foreground/50',
+                    !canAdd && 'cursor-not-allowed opacity-60',
+                  )}
+                >
+                  <span className="flex items-center gap-2 font-medium text-sm">
+                    <span className={cn(
+                      'inline-block h-3 w-3 rounded-full border-2',
+                      mode === o.v ? 'border-primary bg-primary' : 'border-muted-foreground/40',
+                    )} />
+                    {o.t}
+                  </span>
+                  <span className="mt-1 block text-xs text-muted-foreground">{o.d}</span>
+                </button>
+              ))}
+            </div>
+
             {/* Área de arrastar-e-soltar. O input fica escondido atrás do label: clicar em
                 qualquer ponto da área abre o seletor, e o teclado alcança o input. */}
             <label
