@@ -402,6 +402,9 @@ function ConfirmUploadDialog({ preview, fileName, sending, onCancel, onConfirm }
   if (!preview) return null
 
   const diff = preview.diff
+  // Esta tela sempre envia `replace`. O diálogo ainda trata `append` porque quem manda é
+  // a resposta do servidor, e o backend mantém os dois modos — a tela admin e consumidores
+  // da API usam o caminho aditivo.
   const ehSubstituicao = preview.mode === 'replace'
 
   // Agrupa por motivo: "10× CPF inválido" diz mais que 10 linhas soltas.
@@ -580,7 +583,6 @@ function BeneficiariosContent() {
   const [uploading, setUploading] = useState(false)
   const [uploadResult, setUploadResult] = useState<UploadResult | null>(null)
   const [dragging, setDragging] = useState(false)
-  const [mode, setMode] = useState<UploadMode>('append')
   /** Resposta `needs_confirmation`: o arquivo tem linhas recusadas e o gestor decide. */
   const [pendingConfirm, setPendingConfirm] = useState<UploadPreview | null>(null)
 
@@ -703,7 +705,10 @@ function BeneficiariosContent() {
       // O arquivo sobe de novo na confirmação. São poucos KB, e guardar o parse numa
       // sessão intermediária custaria mais do que reprocessar.
       form.append('confirm', confirm ? 'true' : 'false')
-      form.append('mode', mode)
+      // A importação é sempre a lista vigente do contrato: o sistema calcula o que
+      // entra, o que fica e o que sai. Ter dois modos obrigava o gestor a acertar uma
+      // escolha que ele não tem como julgar — e errar revogava gente por engano.
+      form.append('mode', 'replace')
       // fetch puro: o browser define o Content-Type multipart COM boundary
       // (o axios da instância forçaria application/json e quebraria o multer).
       const res = await fetch(`${api.defaults.baseURL}/api/affinity/my/batches`, {
@@ -879,47 +884,13 @@ function BeneficiariosContent() {
           <CardHeader>
             <CardTitle className="text-base">Enviar a lista de beneficiários</CardTitle>
             <CardDescription>
-              Planilha Excel ou CSV. Basta ter uma coluna de <strong>CPF</strong> e outra de{' '}
-              <strong>data de nascimento</strong> — as demais colunas são ignoradas, então
-              dá para enviar o arquivo do RH como ele é.
+              Envie a <strong>lista completa e vigente</strong> do contrato: quem está nela
+              entra ou permanece, quem não está sai. Planilha Excel ou CSV, com uma coluna de{' '}
+              <strong>CPF</strong> e outra de <strong>data de nascimento</strong> — as demais
+              são ignoradas, então dá para enviar o arquivo do RH como ele é.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            {/* O significado do envio não dá para inferir do arquivo: uma planilha de 10
-                linhas tanto pode ser "10 contratados novos" quanto "sobraram 10 pessoas".
-                Por isso a escolha é explícita, e cada opção diz o que faz. */}
-            <div className="grid gap-2 sm:grid-cols-2">
-              {([
-                { v: 'append'  as UploadMode, t: 'Acrescentar à lista',
-                  d: 'Adiciona quem está na planilha. Ninguém perde o acesso.' },
-                { v: 'replace' as UploadMode, t: 'Substituir a lista',
-                  d: 'A planilha passa a ser a lista vigente. Quem não estiver nela sai do contrato.' },
-              ]).map((o) => (
-                <button
-                  key={o.v}
-                  type="button"
-                  onClick={() => { setMode(o.v); setUploadResult(null) }}
-                  disabled={!canAdd}
-                  className={cn(
-                    'rounded-lg border p-3 text-left transition-colors',
-                    mode === o.v
-                      ? 'border-primary bg-primary/5'
-                      : 'border-muted-foreground/25 hover:border-muted-foreground/50',
-                    !canAdd && 'cursor-not-allowed opacity-60',
-                  )}
-                >
-                  <span className="flex items-center gap-2 font-medium text-sm">
-                    <span className={cn(
-                      'inline-block h-3 w-3 rounded-full border-2',
-                      mode === o.v ? 'border-primary bg-primary' : 'border-muted-foreground/40',
-                    )} />
-                    {o.t}
-                  </span>
-                  <span className="mt-1 block text-xs text-muted-foreground">{o.d}</span>
-                </button>
-              ))}
-            </div>
-
             {/* Área de arrastar-e-soltar. O input fica escondido atrás do label: clicar em
                 qualquer ponto da área abre o seletor, e o teclado alcança o input. */}
             <label
@@ -971,9 +942,9 @@ function BeneficiariosContent() {
             </Button>
 
             <p className="text-xs text-muted-foreground">
-              Linhas sem CPF ou data válidos são apontadas antes do envio, para você decidir
-              se segue sem elas. O arquivo é recusado por inteiro se tiver mais pessoas do
-              que vagas — assim ninguém fica de fora sem você saber.
+              Antes de aplicar, você vê quantos permanecem, entram e saem — e quem sai.
+              Linhas sem CPF ou data válidos são apontadas na mesma tela. O arquivo é recusado
+              por inteiro se tiver mais pessoas do que vagas.
             </p>
 
             {slots.available === 0 && !outOfTerm && (
