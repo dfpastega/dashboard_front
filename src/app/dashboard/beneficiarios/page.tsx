@@ -34,6 +34,7 @@ import {
 import { toast } from 'sonner'
 import { api, handleUnauthorized } from '@/lib/api'
 import { maskCpf, maskDate } from '@/lib/masks'
+import { cn } from '@/lib/utils'
 
 // ─── Tipos (respostas de /api/affinity/my) ───────────────────────────────────
 
@@ -73,10 +74,21 @@ interface Batch {
   source: string | null
 }
 
+interface InvalidRow { line: number; reason: string }
+
 interface UploadResult {
   queuedRows: number
   chunks: number
-  invalidRows: Array<{ line: number; reason: string }>
+  invalidRows: InvalidRow[]
+}
+
+/** Diagnóstico devolvido quando o arquivo tem linhas recusadas (`needs_confirmation`). */
+interface UploadPreview {
+  validRows: number
+  invalidRows: InvalidRow[]
+  totalRows: number
+  /** Cabeçalhos que o servidor reconheceu; null quando o arquivo é posicional. */
+  detected: { cpf: string | null; birthDate: string | null }
 }
 
 interface Activated {
@@ -349,6 +361,99 @@ function LookupCard({ canWrite, onLookup, onRevoke }: {
   )
 }
 
+// ─── Confirmação de envio parcial ────────────────────────────────────────────
+
+/**
+ * Mostra o que entra e o que fica de fora, e deixa o gestor decidir.
+ *
+ * O alternativo seria recusar o arquivo inteiro, obrigando a corrigir a planilha antes de
+ * qualquer envio. Numa lista de 100 com 20 problemas, isso trava 80 pessoas por causa de
+ * 20 — e o gestor frequentemente não tem como corrigir (o dado não existe no RH dele).
+ *
+ * As linhas recusadas vêm numeradas como no arquivo original, então dá para conferir.
+ */
+function ConfirmUploadDialog({ preview, fileName, sending, onCancel, onConfirm }: {
+  preview: UploadPreview | null
+  fileName: string | null
+  sending: boolean
+  onCancel: () => void
+  onConfirm: () => void
+}) {
+  if (!preview) return null
+
+  // Agrupa por motivo: "10× CPF inválido" diz mais que 10 linhas soltas.
+  const porMotivo = preview.invalidRows.reduce<Record<string, number>>((acc, r) => {
+    acc[r.reason] = (acc[r.reason] ?? 0) + 1
+    return acc
+  }, {})
+
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o && !sending) onCancel() }}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Algumas linhas não podem ser enviadas</DialogTitle>
+          <DialogDescription>
+            Li <strong className="text-foreground">{preview.totalRows}</strong> linha(s) em{' '}
+            <span className="font-medium">{fileName}</span>.
+            {preview.detected.cpf && (
+              <> Usei as colunas <code className="rounded bg-muted px-1">{preview.detected.cpf}</code> e{' '}
+              <code className="rounded bg-muted px-1">{preview.detected.birthDate}</code>.</>
+            )}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-md border p-3 text-center">
+            <p className="text-2xl font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
+              {preview.validRows}
+            </p>
+            <p className="text-xs text-muted-foreground">serão enviados</p>
+          </div>
+          <div className="rounded-md border p-3 text-center">
+            <p className="text-2xl font-semibold tabular-nums text-amber-600 dark:text-amber-400">
+              {preview.invalidRows.length}
+            </p>
+            <p className="text-xs text-muted-foreground">ficam de fora</p>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <p className="text-sm font-medium">Por que ficaram de fora</p>
+          <ul className="space-y-1 text-sm text-muted-foreground">
+            {Object.entries(porMotivo).map(([motivo, n]) => (
+              <li key={motivo} className="flex gap-2">
+                <span className="tabular-nums font-medium text-foreground">{n}×</span>
+                {motivo}
+              </li>
+            ))}
+          </ul>
+          <details className="text-xs">
+            <summary className="cursor-pointer text-muted-foreground">Ver as linhas</summary>
+            <ul className="mt-1 max-h-40 overflow-y-auto text-muted-foreground">
+              {preview.invalidRows.map((r) => (
+                <li key={r.line}>linha {r.line}: {r.reason}</li>
+              ))}
+            </ul>
+          </details>
+        </div>
+
+        <p className="text-xs text-muted-foreground">
+          Quem ficar de fora pode entrar depois: corrija a planilha e envie de novo, só com
+          as linhas que faltaram.
+        </p>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onCancel} disabled={sending}>Cancelar</Button>
+          <Button onClick={onConfirm} disabled={sending}>
+            {sending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Enviar {preview.validRows}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 // ─── Página ──────────────────────────────────────────────────────────────────
 
 function BeneficiariosContent() {
@@ -360,15 +465,13 @@ function BeneficiariosContent() {
   const [batches, setBatches] = useState<Batch[]>([])
   const [loadingBatches, setLoadingBatches] = useState(false)
 
-  // inclusão individual
-  const [cpf, setCpf] = useState('')
-  const [birthDate, setBirthDate] = useState('')
-  const [adding, setAdding] = useState(false)
-
   // upload
   const [file, setFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
   const [uploadResult, setUploadResult] = useState<UploadResult | null>(null)
+  const [dragging, setDragging] = useState(false)
+  /** Resposta `needs_confirmation`: o arquivo tem linhas recusadas e o gestor decide. */
+  const [pendingConfirm, setPendingConfirm] = useState<UploadPreview | null>(null)
 
   // roster de ativados
   const [activated, setActivated] = useState<Activated[]>([])
@@ -475,41 +578,20 @@ function BeneficiariosContent() {
     }
   }
 
-  async function addOne() {
-    if (!selected) return
-    if (!cpf.trim() || !birthDate.trim()) {
-      toast.error('Preencha o CPF e a data de nascimento.')
-      return
-    }
-    setAdding(true)
-    try {
-      await api.post('/api/affinity/my/beneficiaries', {
-        contractId: selected.id,
-        cpf,
-        birthDate,
-      })
-      toast.success('Beneficiário enviado. O convite chega por WhatsApp em alguns minutos.')
-      setCpf(''); setBirthDate('')
-      // A réplica leva alguns segundos até refletir o novo pendente.
-      setTimeout(() => refresh(selected.id), 4000)
-    } catch (err) {
-      toast.error(apiError(err, 'Não foi possível incluir o beneficiário.'))
-    } finally {
-      setAdding(false)
-    }
-  }
-
-  async function uploadCsv() {
+  async function uploadCsv(confirm = false) {
     if (!selected || !file) {
-      toast.error('Escolha o arquivo CSV.')
+      toast.error('Escolha a planilha.')
       return
     }
     setUploading(true)
-    setUploadResult(null)
+    if (!confirm) setUploadResult(null)
     try {
       const form = new FormData()
       form.append('file', file)
       form.append('contractId', selected.id)
+      // O arquivo sobe de novo na confirmação. São poucos KB, e guardar o parse numa
+      // sessão intermediária custaria mais do que reprocessar.
+      form.append('confirm', confirm ? 'true' : 'false')
       // fetch puro: o browser define o Content-Type multipart COM boundary
       // (o axios da instância forçaria application/json e quebraria o multer).
       const res = await fetch(`${api.defaults.baseURL}/api/affinity/my/batches`, {
@@ -520,8 +602,15 @@ function BeneficiariosContent() {
       // fetch puro não passa pelo interceptor da api: tratar sessão expirada aqui.
       if (res.status === 401) { handleUnauthorized(); return }
       const data = await res.json()
-      if (!res.ok) throw { response: { data } }
+      if (!res.ok) throw { response: { status: res.status, data } }
 
+      // O servidor achou linhas com problema e devolveu o diagnóstico sem enfileirar.
+      if (data.status === 'needs_confirmation') {
+        setPendingConfirm(data)
+        return
+      }
+
+      setPendingConfirm(null)
       setUploadResult(data)
       toast.success(`${data.queuedRows} beneficiário(s) enviado(s).`)
       setFile(null)
@@ -670,100 +759,97 @@ function BeneficiariosContent() {
       </Alert>
 
       {selected.canWrite && (
-        <div className="grid gap-6 lg:grid-cols-2">
-          {/* Inclusão individual */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Incluir um beneficiário</CardTitle>
-              <CardDescription>
-                Ele recebe o convite por WhatsApp e ativa o curso sozinho.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="space-y-1">
-                <Label htmlFor="ben-cpf">CPF</Label>
-                <Input
-                  id="ben-cpf"
-                  inputMode="numeric"
-                  autoComplete="off"
-                  placeholder="000.000.000-00"
-                  value={cpf}
-                  onChange={(e) => setCpf(maskCpf(e.target.value))}
-                  disabled={!canAdd}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="ben-nasc">Data de nascimento</Label>
-                <Input
-                  id="ben-nasc"
-                  inputMode="numeric"
-                  autoComplete="off"
-                  placeholder="DD/MM/AAAA"
-                  value={birthDate}
-                  onChange={(e) => setBirthDate(maskDate(e.target.value))}
-                  disabled={!canAdd}
-                />
-              </div>
-              <Button onClick={addOne} disabled={adding || !canAdd} className="w-full">
-                {adding ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserPlus className="mr-2 h-4 w-4" />}
-                Incluir
-              </Button>
-              {slots.available === 0 && !outOfTerm && (
-                <p className="text-xs text-amber-600 dark:text-amber-400">
-                  Sem vagas livres. Fale com a Storm para ampliar o contrato.
-                </p>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Enviar a lista de beneficiários</CardTitle>
+            <CardDescription>
+              Planilha Excel ou CSV. Basta ter uma coluna de <strong>CPF</strong> e outra de{' '}
+              <strong>data de nascimento</strong> — as demais colunas são ignoradas, então
+              dá para enviar o arquivo do RH como ele é.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {/* Área de arrastar-e-soltar. O input fica escondido atrás do label: clicar em
+                qualquer ponto da área abre o seletor, e o teclado alcança o input. */}
+            <label
+              htmlFor="ben-file"
+              onDragOver={(e) => { e.preventDefault(); if (canAdd) setDragging(true) }}
+              onDragLeave={() => setDragging(false)}
+              onDrop={(e) => {
+                e.preventDefault()
+                setDragging(false)
+                if (!canAdd) return
+                const f = e.dataTransfer.files?.[0]
+                if (f) { setFile(f); setUploadResult(null) }
+              }}
+              className={cn(
+                'flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed px-6 py-10 text-center transition-colors',
+                canAdd ? 'cursor-pointer hover:border-primary/60 hover:bg-muted/40' : 'cursor-not-allowed opacity-60',
+                dragging ? 'border-primary bg-primary/5' : 'border-muted-foreground/25',
               )}
-            </CardContent>
-          </Card>
+            >
+              <Upload className={cn('h-7 w-7', dragging ? 'text-primary' : 'text-muted-foreground')} />
+              {file ? (
+                <>
+                  <span className="font-medium">{file.name}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {(file.size / 1024).toFixed(0)} KB · clique para trocar
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="font-medium">
+                    Arraste a planilha aqui ou <span className="text-primary underline">clique para escolher</span>
+                  </span>
+                  <span className="text-xs text-muted-foreground">.xlsx, .xls ou .csv — até 5 MB</span>
+                </>
+              )}
+              <input
+                id="ben-file"
+                type="file"
+                className="sr-only"
+                accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+                disabled={!canAdd}
+                onChange={(e) => { setFile(e.target.files?.[0] ?? null); setUploadResult(null) }}
+              />
+            </label>
 
-          {/* Upload de lista */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Enviar uma lista</CardTitle>
-              <CardDescription>
-                Arquivo CSV com uma pessoa por linha, no formato{' '}
-                <code className="rounded bg-muted px-1">cpf;dataNascimento</code>.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="space-y-1">
-                <Label htmlFor="ben-file">Arquivo CSV</Label>
-                <Input
-                  id="ben-file"
-                  type="file"
-                  accept=".csv,text/csv"
-                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                  disabled={!canAdd}
-                />
-              </div>
-              <Button onClick={uploadCsv} disabled={uploading || !canAdd || !file} className="w-full">
-                {uploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-                Enviar lista
-              </Button>
-              <p className="text-xs text-muted-foreground">
-                O arquivo é recusado por inteiro se tiver mais pessoas do que vagas —
-                assim ninguém fica de fora sem você saber.
+            <Button onClick={() => uploadCsv()} disabled={uploading || !canAdd || !file} className="w-full">
+              {uploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+              Enviar lista
+            </Button>
+
+            <p className="text-xs text-muted-foreground">
+              Linhas sem CPF ou data válidos são apontadas antes do envio, para você decidir
+              se segue sem elas. O arquivo é recusado por inteiro se tiver mais pessoas do
+              que vagas — assim ninguém fica de fora sem você saber.
+            </p>
+
+            {slots.available === 0 && !outOfTerm && (
+              <p className="text-xs text-amber-600 dark:text-amber-400">
+                Sem vagas livres. Fale com a Storm para ampliar o contrato.
               </p>
-              {uploadResult && (
-                <div className="rounded-md border p-3 text-sm space-y-1">
-                  <p><span className="font-medium">{uploadResult.queuedRows}</span> enviado(s), aguardando processamento.</p>
-                  {uploadResult.invalidRows.length > 0 && (
-                    <details>
-                      <summary className="cursor-pointer text-amber-600 dark:text-amber-400">
-                        {uploadResult.invalidRows.length} linha(s) ignorada(s)
-                      </summary>
-                      <ul className="mt-1 max-h-32 overflow-y-auto text-xs text-muted-foreground">
-                        {uploadResult.invalidRows.map((r) => (
-                          <li key={r.line}>linha {r.line}: {r.reason}</li>
-                        ))}
-                      </ul>
-                    </details>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+            )}
+
+            {uploadResult && (
+              <div className="rounded-md border p-3 text-sm space-y-1">
+                <p><span className="font-medium">{uploadResult.queuedRows}</span> enviado(s), aguardando processamento.</p>
+                {uploadResult.invalidRows.length > 0 && (
+                  <details>
+                    <summary className="cursor-pointer text-amber-600 dark:text-amber-400">
+                      {uploadResult.invalidRows.length} linha(s) ficaram de fora
+                    </summary>
+                    <ul className="mt-1 max-h-32 overflow-y-auto text-xs text-muted-foreground">
+                      {uploadResult.invalidRows.map((r) => (
+                        <li key={r.line}>linha {r.line}: {r.reason}</li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       {/* Beneficiários que ativaram — a única lista de pessoas que este modelo produz */}
@@ -858,6 +944,14 @@ function BeneficiariosContent() {
         target={revokeTarget}
         onClose={() => setRevokeTarget(null)}
         onConfirm={revoke}
+      />
+
+      <ConfirmUploadDialog
+        preview={pendingConfirm}
+        fileName={file?.name ?? null}
+        sending={uploading}
+        onCancel={() => setPendingConfirm(null)}
+        onConfirm={() => uploadCsv(true)}
       />
 
       {/* Histórico de envios */}
