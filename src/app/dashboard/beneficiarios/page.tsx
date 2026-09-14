@@ -821,7 +821,17 @@ function BeneficiariosContent() {
 
   const slots = selected.slots
   const outOfTerm = slots.expired || slots.notStarted
-  const canAdd = selected.canWrite && !outOfTerm && slots.available > 0
+  /**
+   * Pode enviar lista?
+   *
+   * NÃO exige vaga livre. A importação é a lista vigente do contrato, e uma lista nova
+   * costuma REMOVER gente — é justamente com o contrato cheio que o gestor precisa
+   * enviar, para desligar quem saiu e abrir espaço. Exigir saldo aqui travava exatamente
+   * o caso que o recurso existe para resolver.
+   *
+   * Quem barra excesso é o servidor, comparando o tamanho da lista com o total contratado.
+   */
+  const canAdd = selected.canWrite && !outOfTerm
 
   return (
     <div className="space-y-6">
@@ -949,7 +959,9 @@ function BeneficiariosContent() {
 
             {slots.available === 0 && !outOfTerm && (
               <p className="text-xs text-amber-600 dark:text-amber-400">
-                Sem vagas livres. Fale com a Storm para ampliar o contrato.
+                O contrato está com as {slots.contractedSlots} vagas ocupadas. Você ainda pode
+                enviar uma lista — quem sair dela libera vaga para quem entra. Para ir além
+                de {slots.contractedSlots}, fale com a Storm.
               </p>
             )}
 
