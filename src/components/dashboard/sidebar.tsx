@@ -114,6 +114,18 @@ function SidebarContent({ userRole, userContracts, isCollapsed, onToggle }: {
   const multiContract = userContracts.length > 1
   const isHomePath = pathname === '/dashboard' || pathname.startsWith('/dashboard?')
   const showAdmin = adminGroup.roles.includes(userRole)
+
+  /**
+   * O gestor de contrato não vê o item "Dashboard" genérico.
+   *
+   * Ele existe para quem não tem dashboard próprio: monta o iframe padrão do Metabase
+   * filtrado pelo contrato. O gestor recebe dashboards nomeados (o "Ativos", por exemplo),
+   * e a home viraria uma segunda porta para a mesma coisa — com um nome pior.
+   *
+   * O acesso a /dashboard continua existindo; só sai do menu. Quem cair lá por URL é
+   * redirecionado para Beneficiários quando o contrato é de afinidade.
+   */
+  const showHome = userRole !== 'contract_manager'
   const staticItems = staticNavigation.filter(item =>
     item.roles.includes(userRole) &&
     (!item.requiresModality || userContracts.some(c => c.modality === item.requiresModality))
@@ -196,7 +208,7 @@ function SidebarContent({ userRole, userContracts, isCollapsed, onToggle }: {
       <ScrollArea className="flex-1 px-3 py-4">
         <nav className="space-y-1">
           {/* ── Dashboard home ── */}
-          {multiContract && !isCollapsed ? (
+          {!showHome ? null : multiContract && !isCollapsed ? (
             <div>
               <Button
                 variant={isHomePath ? 'secondary' : 'ghost'}
