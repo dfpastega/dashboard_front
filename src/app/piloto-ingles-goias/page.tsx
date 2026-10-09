@@ -34,8 +34,8 @@ export default function PilotoInglesGoiasPage() {
       {/* Seção principal */}
       <section aria-labelledby="titulo-principal" className="bg-abih-marinho text-white">
         <div className="mx-auto max-w-6xl px-4 pb-16 pt-10 sm:px-6 sm:pb-24 sm:pt-16">
-          <p className="inline-flex flex-wrap items-center gap-x-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-white/90">
-            Sebrae + ABIH <span aria-hidden>·</span> <span className="normal-case tracking-normal">powered by Storm</span>
+          <p className="inline-flex items-center rounded-full bg-white/10 px-4 py-1.5 font-display text-base font-bold uppercase tracking-wider text-white sm:px-5 sm:py-2 sm:text-lg">
+            Sebrae + ABIH
           </p>
           <h1
             id="titulo-principal"
