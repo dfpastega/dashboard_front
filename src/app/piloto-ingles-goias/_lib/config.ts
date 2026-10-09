@@ -30,15 +30,16 @@ export type Marca = {
 
 // Arquivos baixados dos sites oficiais em 09/10/2026, sem alteração de arte:
 // - Sebrae: sebrae.com.br/content/dam/portal-sebrae/na/pt/imagens/logo/logo-sebrae.svg
-// - ABIH: logo do cabeçalho de abih.com.br (PNG), só com as margens brancas recortadas.
+// - ABIH: logo do cabeçalho de abih.com.br (PNG), recortado para só o símbolo (letras e faixa
+//   azul), sem o texto "Associação Brasileira da Indústria de Hotéis – Nacional" embaixo.
 // Se a coordenação do piloto enviar arquivos do manual de marca, basta substituí-los.
 export const MARCAS: Record<'sebrae' | 'abih' | 'storm', Marca> = {
   sebrae: { nome: 'Sebrae', src: '/piloto-ingles-goias/logo-sebrae.svg', width: 75, height: 40, selo: true },
   abih: {
     nome: 'ABIH – Associação Brasileira da Indústria de Hotéis',
-    src: '/piloto-ingles-goias/logo-abih.png',
-    width: 640,
-    height: 288,
+    src: '/piloto-ingles-goias/logo-abih-simbolo.png',
+    width: 560,
+    height: 225,
     selo: true,
   },
   storm: { nome: 'Storm', src: '/logo-storm.svg', width: 86, height: 26, selo: false },

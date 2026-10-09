@@ -126,9 +126,9 @@ export default function PilotoGoiasAdminPage() {
     <div className="space-y-6 p-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Piloto Goiás — hotéis cadastrados</h1>
+          <h1 className="text-2xl font-bold">Capacitação Goiás — hotéis cadastrados</h1>
           <p className="text-muted-foreground text-sm">
-            Cadastros confirmados pela landing do piloto de inglês para o trade de Goiás (Sebrae + ABIH)
+            Cadastros confirmados pela landing do plano de capacitação em inglês para o trade de Goiás (Sebrae + ABIH)
           </p>
         </div>
         <Button variant="outline" asChild>
@@ -185,7 +185,7 @@ export default function PilotoGoiasAdminPage() {
           </div>
           {revelado && (
             <p className="text-xs text-muted-foreground">
-              Contatos completos exibidos. O acesso foi registrado. Use os dados apenas para o contato sobre o piloto.
+              Contatos completos exibidos. O acesso foi registrado. Use os dados apenas para o contato sobre o plano de capacitação.
             </p>
           )}
         </CardHeader>

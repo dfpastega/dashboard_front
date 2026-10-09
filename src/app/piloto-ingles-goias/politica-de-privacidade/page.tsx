@@ -4,9 +4,9 @@ import type { ReactNode } from 'react'
 import { ROTAS } from '../_lib/config'
 
 export const metadata: Metadata = {
-  title: 'Política de Privacidade · Piloto de inglês para o trade de Goiás',
+  title: 'Política de Privacidade · Plano de capacitação em inglês para o trade de Goiás',
   description:
-    'Como os dados do cadastro de hotéis no piloto de capacitação em inglês (Sebrae + ABIH, powered by Storm) são tratados, conforme a LGPD.',
+    'Como os dados do cadastro de hotéis no plano de capacitação em inglês (Sebrae + ABIH, powered by Storm) são tratados, conforme a LGPD.',
 }
 
 /*
@@ -67,7 +67,7 @@ export default function PoliticaPrivacidadePage() {
       <div className="mx-auto max-w-3xl">
         <header className="border-b pb-8">
           <p className="text-sm font-semibold uppercase tracking-wider text-abih-azul">
-            Piloto de inglês para o trade de Goiás
+            Plano de capacitação em inglês para o trade de Goiás
           </p>
           <h1 className="mt-2 font-display text-3xl font-extrabold text-abih-marinho sm:text-4xl">
             Política de Privacidade do cadastro de hotéis
@@ -75,7 +75,7 @@ export default function PoliticaPrivacidadePage() {
           <p className="mt-3 text-sm text-muted-foreground">Última atualização: {ATUALIZACAO}</p>
           <p className="mt-6 text-lg leading-relaxed text-muted-foreground">
             Esta Política explica, de forma simples, quais dados pedimos no cadastro de hotéis interessados no
-            piloto de capacitação em inglês para o trade de turismo e hospitalidade de Goiás, para que os usamos,
+            plano de capacitação em inglês para o trade de turismo e hospitalidade de Goiás, para que os usamos,
             com quem os compartilhamos e como você pode exercer seus direitos, conforme a Lei Geral de Proteção
             de Dados (Lei nº 13.709/2018, “LGPD”).
           </p>
@@ -84,9 +84,9 @@ export default function PoliticaPrivacidadePage() {
         <div className="mt-8 rounded-2xl border bg-card p-6 shadow-sm">
           <h2 className="font-display text-lg font-bold text-abih-marinho">Resumo</h2>
           <ul className="mt-3 list-disc space-y-2 pl-5 leading-relaxed text-muted-foreground">
-            <li>Pedimos apenas os dados necessários para avaliar a participação do hotel no piloto e entrar em contato.</li>
+            <li>Pedimos apenas os dados necessários para avaliar a participação do hotel no plano de capacitação e entrar em contato.</li>
             <li>O cadastro só é efetivado depois que você confirma o e-mail informado.</li>
-            <li>Os dados são compartilhados com o Sebrae e a ABIH, que realizam o piloto, e com fornecedores que operam o serviço.</li>
+            <li>Os dados são compartilhados com o Sebrae e a ABIH, que realizam o plano de capacitação, e com fornecedores que operam o serviço.</li>
             <li>Não vendemos seus dados e não os usamos para publicidade.</li>
             <li>Você pode acessar, corrigir ou pedir a exclusão dos seus dados e revogar o consentimento a qualquer momento.</li>
           </ul>
@@ -110,7 +110,7 @@ export default function PoliticaPrivacidadePage() {
         <div className="mt-12 space-y-12 leading-relaxed text-foreground/90 [&_li]:leading-relaxed">
           <Secao id="quem-somos">
             <p>
-              O piloto é uma parceria entre o <strong>Sebrae</strong> e a <strong>ABIH</strong> (Associação
+              O plano de capacitação é uma parceria entre o <strong>Sebrae</strong> e a <strong>ABIH</strong> (Associação
               Brasileira da Indústria de Hotéis), com a plataforma da <strong>Storm Education</strong>.
             </p>
             <p>
@@ -120,7 +120,7 @@ export default function PoliticaPrivacidadePage() {
               informados neste cadastro.
             </p>
             <p>
-              Esta Política vale para a página do piloto e para o formulário de cadastro de hotéis. O uso da
+              Esta Política vale para a página do plano de capacitação e para o formulário de cadastro de hotéis. O uso da
               plataforma de ensino da Storm por participantes é regido pela Política de Privacidade geral da Storm.
             </p>
           </Secao>
@@ -157,9 +157,9 @@ export default function PoliticaPrivacidadePage() {
             <p>Usamos os dados para:</p>
             <ol className="list-decimal space-y-2 pl-5">
               <li>confirmar o e-mail informado e efetivar o cadastro;</li>
-              <li>avaliar o interesse e a participação do hotel no piloto;</li>
-              <li>entrar em contato com a pessoa responsável sobre o piloto;</li>
-              <li>organizar e acompanhar o piloto junto ao Sebrae e à ABIH;</li>
+              <li>avaliar o interesse e a participação do hotel no plano de capacitação;</li>
+              <li>entrar em contato com a pessoa responsável sobre o plano de capacitação;</li>
+              <li>organizar e acompanhar o plano de capacitação junto ao Sebrae e à ABIH;</li>
               <li>manter a segurança do formulário e prevenir fraudes e cadastros duplicados;</li>
               <li>cumprir obrigações legais e defender direitos em processos, quando necessário.</li>
             </ol>
@@ -196,7 +196,7 @@ export default function PoliticaPrivacidadePage() {
             <p>Os dados podem ser compartilhados com:</p>
             <ul className="list-disc space-y-2 pl-5">
               <li>
-                <strong>Sebrae e ABIH</strong>, instituições realizadoras do piloto, para organizar, acompanhar e
+                <strong>Sebrae e ABIH</strong>, instituições realizadoras do plano de capacitação, para organizar, acompanhar e
                 avaliar o programa e entrar em contato com os hotéis participantes;
               </li>
               <li>
@@ -229,7 +229,7 @@ export default function PoliticaPrivacidadePage() {
                 e os dados enviados são descartados.
               </li>
               <li>
-                <strong>Cadastros confirmados:</strong> guardamos os dados enquanto forem necessários para o piloto e
+                <strong>Cadastros confirmados:</strong> guardamos os dados enquanto forem necessários para o plano de capacitação e
                 seu acompanhamento, ou até você pedir a exclusão.
               </li>
               <li>
@@ -261,7 +261,7 @@ export default function PoliticaPrivacidadePage() {
               <li>ser informado sobre a possibilidade de não consentir e suas consequências;</li>
               <li>
                 <strong>revogar o consentimento</strong>. A revogação não afeta o que foi feito antes dela, mas
-                impede a continuidade da participação do hotel no piloto por meio deste cadastro;
+                impede a continuidade da participação do hotel no plano de capacitação por meio deste cadastro;
               </li>
               <li>apresentar reclamação à ANPD.</li>
             </ul>
@@ -273,14 +273,14 @@ export default function PoliticaPrivacidadePage() {
 
           <Secao id="cookies">
             <p>
-              As páginas do piloto não usam cookies de publicidade nem ferramentas de rastreamento ou análise de
+              As páginas do plano de capacitação não usam cookies de publicidade nem ferramentas de rastreamento ou análise de
               terceiros. O navegador pode guardar preferências técnicas de exibição, que não identificam você.
             </p>
           </Secao>
 
           <Secao id="alteracoes">
             <p>
-              Podemos atualizar esta Política para refletir mudanças no piloto ou na legislação. A data da última
+              Podemos atualizar esta Política para refletir mudanças no plano de capacitação ou na legislação. A data da última
               atualização fica no topo da página. Se a mudança for relevante, avisaremos pelo e-mail cadastrado e,
               quando a lei exigir, pediremos novo consentimento.
             </p>
@@ -303,7 +303,7 @@ export default function PoliticaPrivacidadePage() {
             href={ROTAS.landing}
             className="font-semibold text-abih-azul underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-abih-azul"
           >
-            Voltar à página do piloto
+            Voltar à página do plano de capacitação
           </Link>
         </p>
       </div>

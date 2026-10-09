@@ -12,9 +12,9 @@ const montserrat = Montserrat({
 })
 
 export const metadata: Metadata = {
-  title: 'Piloto de inglês para o trade de Goiás · Sebrae + ABIH',
+  title: 'Plano de capacitação em inglês para o trade de Goiás · Sebrae + ABIH',
   description:
-    'Cadastro de hotéis de Goiás interessados em participar do piloto de capacitação em inglês para o trade de turismo e hospitalidade. Sebrae + ABIH, powered by Storm.',
+    'Cadastro de hotéis de Goiás interessados em participar do plano de capacitação em inglês para o trade de turismo e hospitalidade. Sebrae + ABIH, powered by Storm.',
 }
 
 export default function PilotoLayout({ children }: { children: React.ReactNode }) {

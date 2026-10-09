@@ -75,10 +75,13 @@ O frontend estará rodando em `http://localhost:3000`
 - Token válido por 1 hora
 - Redirecionamento automático para login após sucesso
 
-### 🏨 Landing do piloto de inglês — Goiás (`/piloto-ingles-goias`)
+### 🏨 Landing do plano de capacitação em inglês — Goiás (`/piloto-ingles-goias`)
 
-Página pública para cadastrar hotéis de Goiás interessados no piloto de capacitação em
-inglês para o trade de turismo e hospitalidade (parceria Sebrae + ABIH, powered by Storm).
+Página pública para cadastrar hotéis interessados no plano de capacitação em inglês para o
+trade turístico de Goiás (parceria Sebrae + ABIH, metodologia Storm Education). O projeto
+começou como "piloto" e foi renomeado para "plano de capacitação" no texto visível; os nomes
+internos — URL `/piloto-ingles-goias`, rotas `/api/piloto-goias`, tabelas `dash_pilot_*` —
+continuam os mesmos para não quebrar links já distribuídos nem o banco.
 Não exige login; o middleware não interfere.
 
 | Rota | Tela |
@@ -95,8 +98,10 @@ link (`POST /api/piloto-goias/cadastros/confirmar`, uso único, 48h). Contrato c
 em `dashboard_back/docs/API_REFERENCE.md`, seção "Piloto Goiás".
 
 **Seções da landing:** cabeçalho com os logos (Realização: Sebrae e ABIH · powered by Storm)
-→ hero com o selo "Sebrae + ABIH", título e botão "Cadastrar meu hotel" → "Sobre o piloto"
-(para quem é, quem realiza, tecnologia) e "Como funciona o cadastro" (3 passos) →
+→ hero com o selo "Sebrae + ABIH", título ("…participar gratuitamente…") e botões
+"Cadastrar meu hotel" e "Saber mais" → "Sobre o plano de capacitação" (cartões "Para quem é"
+— hotéis associados à ABIH-GO — e "Metodologia" — Storm Education, 100% via WhatsApp) e
+"Como funciona o cadastro" (3 passos) →
 formulário → rodapé com logos e link da Política.
 
 **Formulário** (todos obrigatórios, exceto Complemento):
@@ -117,7 +122,7 @@ formulário → rodapé com logos e link da Política.
 | Arquivo | Papel |
 |---|---|
 | `layout.tsx` | Fonte Montserrat, tema `.piloto-goias`, cabeçalho, rodapé, link "pular para o conteúdo" |
-| `page.tsx` | Landing (hero, Sobre o piloto, Como funciona, seção do formulário) |
+| `page.tsx` | Landing (hero, Sobre o plano de capacitação, Como funciona, seção do formulário) |
 | `confirme-seu-email/page.tsx` | Aviso pós-envio |
 | `confirmar/page.tsx` | Lê o token de `#token=` (ou `?token=`), tira da barra de endereço e confirma; estados: verificando, link inválido, já cadastrado, indisponível |
 | `obrigado/page.tsx` | Agradecimento (`noindex`) |
@@ -135,7 +140,7 @@ Compartilhados fora da pasta: `src/lib/br-validators.ts` (CNPJ, celular, e-mail,
 `src/lib/cep.ts` (ViaCEP), `src/lib/masks.ts` (máscaras de CNPJ e CEP), tokens de cor e fonte
 em `src/app/globals.css`, logos em `public/piloto-ingles-goias/`.
 
-**Consulta no painel:** `/dashboard/admin/piloto-goias` (menu Admin › Piloto Goiás), só para
+**Consulta no painel:** `/dashboard/admin/piloto-goias` (menu Admin › Capacitação Goiás), só para
 `super_admin` — o item do menu é filtrado por role e a API responde 403 aos demais. Totais
 (confirmados e aguardando confirmação), busca, paginação de 50 e detalhes de cada cadastro.
 E-mail e celular vêm mascarados; "Mostrar contatos" pede os dados completos com `reveal=1`
@@ -149,7 +154,9 @@ ficam em `dash_pilot_hotel_pending` até a confirmação (48h) e os cadastros co
 **Identidade visual:** cores e tipografia do site da ABIH (`#323266`, `#5757FF`, Montserrat),
 definidas em `globals.css` no escopo `.piloto-goias` — a página é sempre clara, mesmo com o
 painel em modo escuro. Logos oficiais em `public/piloto-ingles-goias/` (Sebrae: SVG do portal
-sebrae.com.br; ABIH: PNG do site abih.com.br, só com as margens recortadas).
+sebrae.com.br; ABIH: `logo-abih-simbolo.png`, o logo do site abih.com.br recortado para só o
+símbolo, sem o texto embaixo). Ao trocar um logo, use um nome de arquivo novo: o otimizador de
+imagens do Next e os navegadores guardam a versão antiga pelo nome.
 
 **Pré-visualização sem backend:** fora de produção, `?simular=sucesso` ou `?simular=erro`
 na URL percorre as telas sem chamar a API (uma faixa amarela avisa que nada foi enviado).
