@@ -42,7 +42,7 @@ O frontend estará rodando em `http://localhost:3000`
 
 ## Branches
 
-- **main**: Branch de produção (aponta para `https://app.stormeducation.com.br`)
+- **main**: Branch de produção — publicada pela Vercel em `https://dashboard.stormeducation.com.br` a cada push
 - **development**: Branch de desenvolvimento (aponta para `http://localhost:3001`)
 
 ## Funcionalidades Implementadas
@@ -74,6 +74,52 @@ O frontend estará rodando em `http://localhost:3000`
 - Mesma validação robusta de senha
 - Token válido por 1 hora
 - Redirecionamento automático para login após sucesso
+
+### 🏨 Landing do piloto de inglês — Goiás (`/piloto-ingles-goias`)
+
+Página pública para cadastrar hotéis de Goiás interessados no piloto de capacitação em
+inglês para o trade de turismo e hospitalidade (parceria Sebrae + ABIH, powered by Storm).
+Não exige login; o middleware não interfere.
+
+| Rota | Tela |
+|---|---|
+| `/piloto-ingles-goias` | Landing + formulário de cadastro |
+| `/piloto-ingles-goias/confirme-seu-email` | Aviso após o envio: falta confirmar o e-mail |
+| `/piloto-ingles-goias/confirmar#token=…` | Destino do link do e-mail; confirma e redireciona |
+| `/piloto-ingles-goias/obrigado` | Cadastro recebido |
+| `/piloto-ingles-goias/politica-de-privacidade` | Política de Privacidade do cadastro (LGPD) |
+
+**Fluxo:** o formulário chama `POST /api/piloto-goias/cadastros`; o backend guarda o envio
+como pendente e manda um e-mail com o link. O cadastro só é gravado quando a pessoa abre o
+link (`POST /api/piloto-goias/cadastros/confirmar`, uso único, 48h). Contrato completo da API
+em `dashboard_back/docs/API_REFERENCE.md`, seção "Piloto Goiás".
+
+**Onde mexer** (`src/app/piloto-ingles-goias/`):
+
+- `_lib/config.ts` — rotas, logos dos parceiros e URL da Política
+- `_lib/cadastro-service.ts` — chamadas à API e modo de pré-visualização
+- `_lib/validacao.ts` — regras e mensagens dos campos
+- `_components/formulario-cadastro.tsx` — formulário (máscaras, busca de CEP, erros, Turnstile)
+- `politica-de-privacidade/page.tsx` — texto da Política; alterou o tratamento de dados no
+  backend, atualize aqui (e a `POLICY_VERSION` em `pilotoGoias.service.ts` do backend)
+- Compartilhados: `src/lib/br-validators.ts` (CNPJ numérico/alfanumérico, celular, e-mail),
+  `src/lib/cep.ts` (ViaCEP), `src/lib/masks.ts` (máscaras de CNPJ e CEP)
+
+**Identidade visual:** cores e tipografia do site da ABIH (`#323266`, `#5757FF`, Montserrat),
+definidas em `globals.css` no escopo `.piloto-goias` — a página é sempre clara, mesmo com o
+painel em modo escuro. Logos oficiais em `public/piloto-ingles-goias/` (Sebrae: SVG do portal
+sebrae.com.br; ABIH: PNG do site abih.com.br, só com as margens recortadas).
+
+**Pré-visualização sem backend:** fora de produção, `?simular=sucesso` ou `?simular=erro`
+na URL percorre as telas sem chamar a API (uma faixa amarela avisa que nada foi enviado).
+Em produção o parâmetro é ignorado.
+
+**Variáveis:** usa `NEXT_PUBLIC_API_URL`. `NEXT_PUBLIC_TURNSTILE_SITE_KEY` é opcional, mas
+precisa ser definida se o backend tiver `TURNSTILE_SECRET_KEY` — senão todo envio é recusado.
+
+**Pendências conhecidas:** revisão jurídica da Política (papéis de controlador da Storm,
+Sebrae e ABIH; prazo de retenção após o piloto); não há tela no painel para consultar os
+cadastros (estão na tabela `dash_pilot_hotel_registrations`).
 
 ## Testando as Funcionalidades
 

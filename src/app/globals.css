@@ -41,6 +41,12 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  /* Landing do piloto Sebrae + ABIH (/piloto-ingles-goias): paleta do site da ABIH */
+  --color-abih-marinho: #323266;
+  --color-abih-marinho-escuro: #24244d;
+  --color-abih-azul: #5757ff;
+  --color-abih-azul-escuro: #4343e0;
+  --font-display: var(--font-montserrat), ui-sans-serif, system-ui, sans-serif;
 }
 
 :root {
@@ -110,6 +116,29 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.552 0.016 285.938);
+}
+
+/*
+ * Landing pública do piloto: sempre clara, independentemente do tema do painel.
+ * Redefinir os tokens no escopo faz os componentes de src/components/ui (Input, Button…)
+ * seguirem a identidade ABIH mesmo com `.dark` no <html>.
+ */
+.piloto-goias {
+  color-scheme: light;
+  --background: oklch(0.985 0.003 285);
+  --foreground: #1f1f3d;
+  --card: oklch(1 0 0);
+  --card-foreground: #1f1f3d;
+  --primary: #5757ff;
+  --primary-foreground: oklch(1 0 0);
+  --muted: oklch(0.967 0.004 286);
+  --muted-foreground: #55557a;
+  --accent: oklch(0.955 0.02 280);
+  --accent-foreground: #323266;
+  --destructive: #c62026;
+  --border: oklch(0.9 0.01 286);
+  --input: oklch(0.82 0.015 286);
+  --ring: #5757ff;
 }
 
 @layer base {
