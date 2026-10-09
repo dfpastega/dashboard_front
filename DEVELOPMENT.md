@@ -94,16 +94,51 @@ como pendente e manda um e-mail com o link. O cadastro só é gravado quando a p
 link (`POST /api/piloto-goias/cadastros/confirmar`, uso único, 48h). Contrato completo da API
 em `dashboard_back/docs/API_REFERENCE.md`, seção "Piloto Goiás".
 
-**Onde mexer** (`src/app/piloto-ingles-goias/`):
+**Seções da landing:** cabeçalho com os logos (Realização: Sebrae e ABIH · powered by Storm)
+→ hero com o selo "Sebrae + ABIH", título e botão "Cadastrar meu hotel" → "Sobre o piloto"
+(para quem é, quem realiza, tecnologia) e "Como funciona o cadastro" (3 passos) →
+formulário → rodapé com logos e link da Política.
 
-- `_lib/config.ts` — rotas, logos dos parceiros e URL da Política
-- `_lib/cadastro-service.ts` — chamadas à API e modo de pré-visualização
-- `_lib/validacao.ts` — regras e mensagens dos campos
-- `_components/formulario-cadastro.tsx` — formulário (máscaras, busca de CEP, erros, Turnstile)
-- `politica-de-privacidade/page.tsx` — texto da Política; alterou o tratamento de dados no
-  backend, atualize aqui (e a `POLICY_VERSION` em `pilotoGoias.service.ts` do backend)
-- Compartilhados: `src/lib/br-validators.ts` (CNPJ numérico/alfanumérico, celular, e-mail),
-  `src/lib/cep.ts` (ViaCEP), `src/lib/masks.ts` (máscaras de CNPJ e CEP)
+**Formulário** (todos obrigatórios, exceto Complemento):
+
+- *Dados do hotel:* nome, CNPJ, número de funcionários, CEP, logradouro, número,
+  complemento, bairro, município, estado
+- *Responsável pelo cadastro:* nome completo, cargo, e-mail, celular
+- Caixa de consentimento obrigatória, com link para a Política (abre em nova aba para não
+  perder o que foi digitado)
+- Máscaras de CNPJ, CEP e celular; CNPJ validado pelos dígitos verificadores (aceita o
+  alfanumérico); CEP completo consulta o ViaCEP e sugere o endereço sem sobrescrever o que a
+  pessoa digitou; erros por campo com texto e `aria-invalid`, resumo de erros com foco;
+  botão travado durante o envio; dados preservados em caso de erro e ao voltar da tela de
+  confirmação (só em memória — nada vai para URL ou storage)
+
+**Arquivos** (`src/app/piloto-ingles-goias/`):
+
+| Arquivo | Papel |
+|---|---|
+| `layout.tsx` | Fonte Montserrat, tema `.piloto-goias`, cabeçalho, rodapé, link "pular para o conteúdo" |
+| `page.tsx` | Landing (hero, Sobre o piloto, Como funciona, seção do formulário) |
+| `confirme-seu-email/page.tsx` | Aviso pós-envio |
+| `confirmar/page.tsx` | Lê o token de `#token=` (ou `?token=`), tira da barra de endereço e confirma; estados: verificando, link inválido, já cadastrado, indisponível |
+| `obrigado/page.tsx` | Agradecimento (`noindex`) |
+| `politica-de-privacidade/page.tsx` | Política do cadastro; alterou o tratamento de dados no backend, atualize aqui e a `POLICY_VERSION` em `pilotoGoias.service.ts` |
+| `_components/formulario-cadastro.tsx` | Formulário, validação, CEP, envio, Turnstile |
+| `_components/cabecalho.tsx` · `rodape.tsx` · `marcas.tsx` | Navegação e faixa de logos |
+| `_components/cartao-status.tsx` | Cartão das telas do fluxo e estilos de botão |
+| `_components/aviso-simulacao.tsx` | Faixa amarela do modo `?simular=` |
+| `_lib/config.ts` | Rotas, logos dos parceiros e URL da Política |
+| `_lib/cadastro-service.ts` | Chamadas à API, mapeamento de erros do servidor para os campos, simulação |
+| `_lib/validacao.ts` | Regras e mensagens dos campos, montagem do payload |
+| `_lib/rascunho.ts` | Dados entre telas, só em memória |
+
+Compartilhados fora da pasta: `src/lib/br-validators.ts` (CNPJ, celular, e-mail, UFs),
+`src/lib/cep.ts` (ViaCEP), `src/lib/masks.ts` (máscaras de CNPJ e CEP), tokens de cor e fonte
+em `src/app/globals.css`, logos em `public/piloto-ingles-goias/`.
+
+**Backend e banco:** rotas `/api/piloto-goias/*` no repositório `dashboard_back`. Os envios
+ficam em `dash_pilot_hotel_pending` até a confirmação (48h) e os cadastros confirmados em
+`dash_pilot_hotel_registrations` (um por CNPJ). Colunas, consultas e revisão de segurança em
+`dashboard_back/docs/piloto-goias.md`.
 
 **Identidade visual:** cores e tipografia do site da ABIH (`#323266`, `#5757FF`, Montserrat),
 definidas em `globals.css` no escopo `.piloto-goias` — a página é sempre clara, mesmo com o
@@ -119,7 +154,8 @@ precisa ser definida se o backend tiver `TURNSTILE_SECRET_KEY` — senão todo e
 
 **Pendências conhecidas:** revisão jurídica da Política (papéis de controlador da Storm,
 Sebrae e ABIH; prazo de retenção após o piloto); não há tela no painel para consultar os
-cadastros (estão na tabela `dash_pilot_hotel_registrations`).
+cadastros (estão na tabela `dash_pilot_hotel_registrations`); captcha desligado em produção
+(sem `TURNSTILE_SECRET_KEY` no backend).
 
 ## Testando as Funcionalidades
 
