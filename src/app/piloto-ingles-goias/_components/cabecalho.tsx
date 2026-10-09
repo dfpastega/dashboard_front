@@ -16,7 +16,7 @@ export function Cabecalho() {
           href={ROTAS.landing}
           className="rounded-md font-display leading-tight focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
         >
-          <span className="block text-base font-bold sm:text-lg">Piloto de Inglês</span>
+          <span className="block text-base font-bold sm:text-lg">Plano de Capacitação em Inglês</span>
           <span className="block text-xs font-medium text-white/75">
             Trade de turismo e hospitalidade · Goiás
           </span>
@@ -27,7 +27,7 @@ export function Cabecalho() {
               href={ROTAS.sobre}
               className="rounded-md px-2 py-1 text-sm font-medium text-white/90 underline-offset-4 hover:text-white hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
             >
-              Sobre o piloto
+              Sobre o plano de capacitação
             </Link>
           </li>
           <li>

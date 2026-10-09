@@ -95,12 +95,12 @@ export default function ConfirmarEmailPage() {
         titulo="Este hotel já tem cadastro confirmado"
         acoes={
           <Link href={ROTAS.landing} className={linkBotao.secundario}>
-            Voltar à página do piloto
+            Voltar à página do plano de capacitação
           </Link>
         }
       >
         <p role="status">
-          Seu e-mail foi confirmado, mas já existe um cadastro confirmado para este CNPJ no piloto. Os dados
+          Seu e-mail foi confirmado, mas já existe um cadastro confirmado para este CNPJ no plano de capacitação. Os dados
           deste novo envio não foram guardados.
         </p>
       </CartaoStatus>

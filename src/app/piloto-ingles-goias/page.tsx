@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Building2, Handshake, MailCheck, MonitorSmartphone, PhoneCall, ClipboardList } from 'lucide-react'
+import { Building2, ClipboardList, GraduationCap, MailCheck, PhoneCall } from 'lucide-react'
 import { ROTAS } from './_lib/config'
 import { FormularioCadastro } from './_components/formulario-cadastro'
 
@@ -7,17 +7,12 @@ const SOBRE = [
   {
     icone: Building2,
     titulo: 'Para quem é',
-    texto: 'Hotéis do estado de Goiás interessados em participar do piloto de capacitação em inglês.',
+    texto: 'Hotéis associados à ABIH-GO interessados em participar do plano de capacitação em inglês.',
   },
   {
-    icone: Handshake,
-    titulo: 'Quem realiza',
-    texto: 'O piloto é uma parceria entre o Sebrae e a ABIH (Associação Brasileira da Indústria de Hotéis).',
-  },
-  {
-    icone: MonitorSmartphone,
-    titulo: 'Tecnologia',
-    texto: 'A capacitação utiliza a plataforma da Storm — o piloto é powered by Storm.',
+    icone: GraduationCap,
+    titulo: 'Metodologia',
+    texto: 'A capacitação das equipes vai seguir a metodologia exclusiva da Storm Education, 100% via WhatsApp.',
   },
 ]
 
@@ -25,7 +20,7 @@ const SOBRE = [
 const PASSOS = [
   { icone: ClipboardList, titulo: 'Preencha o cadastro', texto: 'Informe os dados do hotel e da pessoa responsável.' },
   { icone: MailCheck, titulo: 'Confirme seu e-mail', texto: 'Clique no link que enviaremos para concluir o cadastro.' },
-  { icone: PhoneCall, titulo: 'Aguarde o contato', texto: 'A equipe do piloto entrará em contato com o hotel.' },
+  { icone: PhoneCall, titulo: 'Aguarde o contato', texto: 'A equipe do plano de capacitação entrará em contato com o hotel.' },
 ]
 
 export default function PilotoInglesGoiasPage() {
@@ -41,10 +36,10 @@ export default function PilotoInglesGoiasPage() {
             id="titulo-principal"
             className="mt-5 max-w-3xl font-display text-3xl font-extrabold leading-tight text-balance sm:text-5xl"
           >
-            Seu hotel pode participar do piloto de inglês para o trade de Goiás
+            Seu hotel pode participar gratuitamente do plano de capacitação em inglês para o trade turístico de Goiás
           </h1>
           <p className="mt-5 max-w-2xl text-lg leading-relaxed text-white/85">
-            Este cadastro é destinado a hotéis de Goiás interessados em participar do piloto de capacitação
+            Este cadastro é destinado a hotéis de Goiás interessados em participar do plano de capacitação
             em inglês para o trade de turismo e hospitalidade.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -58,23 +53,23 @@ export default function PilotoInglesGoiasPage() {
               href={ROTAS.sobre}
               className="inline-flex h-12 items-center justify-center rounded-full border border-white/40 px-8 text-base font-semibold text-white transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
             >
-              Conhecer o piloto
+              Saber mais
             </Link>
           </div>
         </div>
       </section>
 
-      {/* Sobre o piloto */}
+      {/* Sobre o plano de capacitação */}
       <section id="sobre" aria-labelledby="titulo-sobre" className="scroll-mt-4 py-16 sm:py-20">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <h2 id="titulo-sobre" className="font-display text-2xl font-bold text-abih-marinho sm:text-3xl">
-            Sobre o piloto
+            Sobre o plano de capacitação
           </h2>
           <p className="mt-4 max-w-3xl text-lg leading-relaxed text-muted-foreground">
             Uma iniciativa de capacitação em inglês para o setor de turismo e hospitalidade em Goiás,
-            realizada pelo Sebrae e pela ABIH com a tecnologia da Storm.
+            realizada pelo Sebrae e pela ABIH com a metodologia de ensino Storm Education.
           </p>
-          <ul className="mt-10 grid gap-5 md:grid-cols-3">
+          <ul className="mt-10 grid max-w-4xl gap-5 md:grid-cols-2">
             {SOBRE.map(({ icone: Icone, titulo, texto }) => (
               <li key={titulo} className="rounded-2xl border bg-card p-6 shadow-sm">
                 <span aria-hidden className="flex size-11 items-center justify-center rounded-xl bg-accent text-abih-azul">
@@ -123,7 +118,7 @@ export default function PilotoInglesGoiasPage() {
             Cadastro do hotel
           </h2>
           <p className="mt-3 text-muted-foreground">
-            Preencha os dados abaixo para registrar o interesse do seu hotel em participar do piloto.
+            Preencha os dados abaixo para registrar o interesse do seu hotel em participar do plano de capacitação.
           </p>
           <div className="mt-8 rounded-2xl border bg-card p-5 shadow-sm sm:p-8">
             <FormularioCadastro />

@@ -5,7 +5,7 @@ import { ROTAS } from '../_lib/config'
 import { CartaoStatus, linkBotao } from '../_components/cartao-status'
 
 export const metadata: Metadata = {
-  title: 'Cadastro recebido · Piloto de inglês para o trade de Goiás',
+  title: 'Cadastro recebido · Plano de capacitação em inglês para o trade de Goiás',
   robots: { index: false },
 }
 
@@ -18,13 +18,13 @@ export default function ObrigadoPage() {
       titulo="Cadastro recebido. Obrigado!"
       acoes={
         <Link href={ROTAS.landing} className={linkBotao.secundario}>
-          Voltar à página do piloto
+          Voltar à página do plano de capacitação
         </Link>
       }
     >
       <p>Seu e-mail foi confirmado e o cadastro do hotel foi recebido.</p>
       <p>
-        <strong>A equipe do piloto entrará em contato em breve.</strong>
+        <strong>A equipe do plano de capacitação entrará em contato em breve.</strong>
       </p>
     </CartaoStatus>
   )

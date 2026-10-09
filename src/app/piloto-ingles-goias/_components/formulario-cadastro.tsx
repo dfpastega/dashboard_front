@@ -422,7 +422,7 @@ export function FormularioCadastro() {
             className="mt-0.5 size-5 shrink-0 cursor-pointer accent-abih-azul focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-abih-azul"
           />
           <label htmlFor="campo-consentimento" className="cursor-pointer text-sm leading-relaxed">
-            Autorizo o tratamento dos dados informados neste cadastro para que a equipe do piloto avalie a
+            Autorizo o tratamento dos dados informados neste cadastro para que a equipe do plano de capacitação avalie a
             participação do hotel e entre em contato, conforme a{' '}
             {/* Nova aba: navegar para a política nesta aba descartaria o que já foi digitado. */}
             <a
