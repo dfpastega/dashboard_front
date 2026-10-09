@@ -135,6 +135,12 @@ Compartilhados fora da pasta: `src/lib/br-validators.ts` (CNPJ, celular, e-mail,
 `src/lib/cep.ts` (ViaCEP), `src/lib/masks.ts` (máscaras de CNPJ e CEP), tokens de cor e fonte
 em `src/app/globals.css`, logos em `public/piloto-ingles-goias/`.
 
+**Consulta no painel:** `/dashboard/admin/piloto-goias` (menu Admin › Piloto Goiás), só para
+`super_admin` — o item do menu é filtrado por role e a API responde 403 aos demais. Totais
+(confirmados e aguardando confirmação), busca, paginação de 50 e detalhes de cada cadastro.
+E-mail e celular vêm mascarados; "Mostrar contatos" pede os dados completos com `reveal=1`
+e o backend registra quem pediu. Arquivo: `src/app/dashboard/admin/piloto-goias/page.tsx`.
+
 **Backend e banco:** rotas `/api/piloto-goias/*` no repositório `dashboard_back`. Os envios
 ficam em `dash_pilot_hotel_pending` até a confirmação (48h) e os cadastros confirmados em
 `dash_pilot_hotel_registrations` (um por CNPJ). Colunas, consultas e revisão de segurança em
@@ -153,8 +159,9 @@ Em produção o parâmetro é ignorado.
 precisa ser definida se o backend tiver `TURNSTILE_SECRET_KEY` — senão todo envio é recusado.
 
 **Pendências conhecidas:** revisão jurídica da Política (papéis de controlador da Storm,
-Sebrae e ABIH; prazo de retenção após o piloto); não há tela no painel para consultar os
-cadastros (estão na tabela `dash_pilot_hotel_registrations`); captcha desligado em produção
+Sebrae e ABIH; prazo de retenção após o piloto); a consulta é só para `super_admin` —
+abrir para outros perfis (ou para Sebrae/ABIH) é decisão de negócio e de LGPD; não há
+exportação para planilha; captcha desligado em produção
 (sem `TURNSTILE_SECRET_KEY` no backend).
 
 ## Testando as Funcionalidades
