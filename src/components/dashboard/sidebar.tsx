@@ -25,6 +25,7 @@ import {
   MessagesSquare,
   Building2,
   Handshake,
+  Hotel,
   UserPlus,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
@@ -76,6 +77,8 @@ const adminGroup = {
     { title: 'Flows Studio',   href: '/dashboard/admin/flows',              icon: Layers,        roles: ['super_admin'] },
     { title: 'Carrossel',      href: '/dashboard/admin/carrossel',          icon: GalleryHorizontalEnd, roles: ['super_admin'] },
     { title: 'Afinidade',      href: '/dashboard/admin/afinidade',          icon: Handshake,     roles: ['super_admin'] },
+    // Cadastros da landing /piloto-ingles-goias. Só super_admin: a rota no backend exige o mesmo.
+    { title: 'Piloto Goiás',   href: '/dashboard/admin/piloto-goias',       icon: Hotel,         roles: ['super_admin'] },
   ],
 }
 
