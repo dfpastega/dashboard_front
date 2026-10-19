@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, Fragment } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -110,7 +110,10 @@ const AUDIO_RE = /\.(ogg|mp3|opus|m4a|wav|aac)(\?|$)/i
 
 // Mapeamento do campo "type" do StormBot (enum MessageType).
 // 0 Unknown, 1 Text, 2 Image, 3 Audio, 4 Video, 5 File, 6 Document,
-// 7 Template, 8 Interactive, 9 System.
+// 7 Template, 8 Interactive, 9 System,
+// 10 Carousel (carrossel de vídeos da aula, saída), 11 Flow (mensagem com botão que abre um
+// WhatsApp Flow, saída), 12 FlowResponse (formulário preenchido pelo aluno, entrada — o conteúdo é o
+// JSON dos campos). Valores 10–12 chegaram em produção em 18/10/2026 (GMUD carrossel + Flows).
 const MEDIA_TYPES: Record<number, { emoji: string; label: string }> = {
   2: { emoji: '🖼️', label: 'Imagem' },
   3: { emoji: '🎵', label: 'Áudio' },
@@ -120,6 +123,25 @@ const MEDIA_TYPES: Record<number, { emoji: string; label: string }> = {
   7: { emoji: '🔔', label: 'Modelo' },
   8: { emoji: '🔘', label: 'Interativo' },
   9: { emoji: '⚙️', label: 'Sistema' },
+  10: { emoji: '🎠', label: 'Carrossel' },
+  11: { emoji: '📋', label: 'Formulário (Flow)' },
+  12: { emoji: '📝', label: 'Resposta do formulário' },
+}
+
+// Campos de uma resposta de WhatsApp Flow (type 12): o backend grava `params` como JSON compacto.
+function parseFlowFields(content: string | null | undefined): [string, string][] | null {
+  if (!content) return null
+  try {
+    const obj = JSON.parse(content)
+    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return null
+    const entries = Object.entries(obj).map(([k, v]) => [
+      k,
+      typeof v === 'string' ? v : JSON.stringify(v),
+    ] as [string, string])
+    return entries.length > 0 ? entries : null
+  } catch {
+    return null
+  }
 }
 
 // ─── Bolha de mensagem ──────────────────────────────────────────────────────
@@ -173,6 +195,11 @@ function MessageBubble({ msg }: { msg: Message }) {
     msg.fileUrl && !IMAGE_RE.test(msg.fileUrl) && !AUDIO_RE.test(msg.fileUrl) ? msg.fileUrl : null
   const hasMedia = !!(imgSrc || audioSrc || fileLink)
   const media = MEDIA_TYPES[msg.type]
+  // Resposta de WhatsApp Flow (type 12): o conteúdo é o JSON dos campos do formulário — mostrar
+  // como "campo: valor" em vez do JSON cru. Qualquer coisa que não seja objeto cai no texto normal.
+  const flowFields = msg.type === 12 ? parseFlowFields(msg.content) : null
+  // Carrossel/Flow enviados (10/11) podem ter texto; o rótulo acima do texto diz o que foi.
+  const showTypeTag = hasText && (msg.type === 10 || msg.type === 11) && media
   return (
     <div className={`flex ${outgoing ? 'justify-end' : 'justify-start'} px-2`}>
       <div
@@ -205,7 +232,29 @@ function MessageBubble({ msg }: { msg: Message }) {
             📎 Abrir anexo
           </a>
         )}
-        {hasText && (
+        {showTypeTag && (
+          <p className="mb-0.5 flex items-center gap-1 text-xs italic text-neutral-500 dark:text-neutral-400">
+            <span>{media.emoji}</span>
+            <span>{media.label}</span>
+          </p>
+        )}
+        {flowFields && (
+          <div className="leading-snug">
+            <p className="mb-0.5 flex items-center gap-1 text-xs italic text-neutral-500 dark:text-neutral-400">
+              <span>{media?.emoji}</span>
+              <span>{media?.label}</span>
+            </p>
+            <dl className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-0.5">
+              {flowFields.map(([k, v]) => (
+                <Fragment key={k}>
+                  <dt className="text-neutral-500 dark:text-neutral-400">{k}:</dt>
+                  <dd className="break-words">{v}</dd>
+                </Fragment>
+              ))}
+            </dl>
+          </div>
+        )}
+        {hasText && !flowFields && (
           <p className="whitespace-pre-wrap break-words leading-snug">{msg.content}</p>
         )}
         {!hasText && !hasMedia && media && (
