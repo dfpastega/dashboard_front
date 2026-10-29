@@ -1,6 +1,6 @@
 import Link from 'next/link'
-import { Building2, ClipboardList, GraduationCap, MailCheck, PhoneCall } from 'lucide-react'
-import { ROTAS } from './_lib/config'
+import { Building2, CalendarX2, ClipboardList, GraduationCap, MailCheck, PhoneCall } from 'lucide-react'
+import { INSCRICOES, ROTAS } from './_lib/config'
 import { FormularioCadastro } from './_components/formulario-cadastro'
 
 const SOBRE = [
@@ -39,16 +39,19 @@ export default function PilotoInglesGoiasPage() {
             Seu hotel pode participar gratuitamente do plano de capacitação em inglês para o trade turístico de Goiás
           </h1>
           <p className="mt-5 max-w-2xl text-lg leading-relaxed text-white/85">
-            Este cadastro é destinado a hotéis de Goiás interessados em participar do plano de capacitação
-            em inglês para o trade de turismo e hospitalidade.
+            {INSCRICOES.encerradas
+              ? `As inscrições foram encerradas em ${INSCRICOES.encerradasEm}. Os hotéis inscritos serão contatados pela coordenação do programa.`
+              : 'Este cadastro é destinado a hotéis de Goiás interessados em participar do plano de capacitação em inglês para o trade de turismo e hospitalidade.'}
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <Link
-              href={ROTAS.formulario}
-              className="inline-flex h-12 items-center justify-center rounded-full bg-abih-azul px-8 text-base font-semibold text-white transition-colors hover:bg-abih-azul-escuro focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-            >
-              Cadastrar meu hotel
-            </Link>
+            {!INSCRICOES.encerradas && (
+              <Link
+                href={ROTAS.formulario}
+                className="inline-flex h-12 items-center justify-center rounded-full bg-abih-azul px-8 text-base font-semibold text-white transition-colors hover:bg-abih-azul-escuro focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+              >
+                Cadastrar meu hotel
+              </Link>
+            )}
             <Link
               href={ROTAS.sobre}
               className="inline-flex h-12 items-center justify-center rounded-full border border-white/40 px-8 text-base font-semibold text-white transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
@@ -114,15 +117,42 @@ export default function PilotoInglesGoiasPage() {
         className="scroll-mt-4 bg-muted px-4 py-16 sm:px-6 sm:py-20"
       >
         <div className="mx-auto max-w-3xl">
-          <h2 id="titulo-cadastro" className="font-display text-2xl font-bold text-abih-marinho sm:text-3xl">
-            Cadastro do hotel
-          </h2>
-          <p className="mt-3 text-muted-foreground">
-            Preencha os dados abaixo para registrar o interesse do seu hotel em participar do plano de capacitação.
-          </p>
-          <div className="mt-8 rounded-2xl border bg-card p-5 shadow-sm sm:p-8">
-            <FormularioCadastro />
-          </div>
+          {INSCRICOES.encerradas ? (
+            <div className="rounded-2xl border bg-card p-6 shadow-sm sm:p-10">
+              <div className="flex items-start gap-4">
+                <span
+                  aria-hidden="true"
+                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-abih-marinho/10 text-abih-marinho"
+                >
+                  <CalendarX2 className="h-6 w-6" />
+                </span>
+                <div>
+                  <h2
+                    id="titulo-cadastro"
+                    className="font-display text-2xl font-bold text-abih-marinho sm:text-3xl"
+                  >
+                    {INSCRICOES.titulo}
+                  </h2>
+                  <p className="mt-3 leading-relaxed text-muted-foreground">{INSCRICOES.mensagem}</p>
+                  <p className="mt-4 rounded-lg bg-muted px-4 py-3 text-sm leading-relaxed text-muted-foreground">
+                    {INSCRICOES.avisoConfirmacaoPendente}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <>
+              <h2 id="titulo-cadastro" className="font-display text-2xl font-bold text-abih-marinho sm:text-3xl">
+                Cadastro do hotel
+              </h2>
+              <p className="mt-3 text-muted-foreground">
+                Preencha os dados abaixo para registrar o interesse do seu hotel em participar do plano de capacitação.
+              </p>
+              <div className="mt-8 rounded-2xl border bg-card p-5 shadow-sm sm:p-8">
+                <FormularioCadastro />
+              </div>
+            </>
+          )}
         </div>
       </section>
     </>
