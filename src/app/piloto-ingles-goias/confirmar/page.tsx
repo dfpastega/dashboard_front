@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Building2, Loader2, MailX, ServerCrash } from 'lucide-react'
-import { ROTAS } from '../_lib/config'
+import { INSCRICOES, ROTAS } from '../_lib/config'
 import { comSimulacao, confirmarEmail, modoSimulacao } from '../_lib/cadastro-service'
 import { limparFluxo } from '../_lib/rascunho'
 import { CartaoStatus, linkBotao } from '../_components/cartao-status'
@@ -75,14 +75,23 @@ export default function ConfirmarEmailPage() {
         tom="erro"
         titulo="Este link de confirmação não é válido"
         acoes={
-          <Link href={comSimulacao(ROTAS.formulario, modoSimulacao())} className={linkBotao.primario}>
-            Voltar ao cadastro
-          </Link>
+          /* Com as inscrições encerradas não há formulário para onde voltar: o convite
+             passa a ser conhecer o programa, não refazer um cadastro impossível. */
+          INSCRICOES.encerradas ? (
+            <Link href={ROTAS.landing} className={linkBotao.primario}>
+              Ver informações do programa
+            </Link>
+          ) : (
+            <Link href={comSimulacao(ROTAS.formulario, modoSimulacao())} className={linkBotao.primario}>
+              Voltar ao cadastro
+            </Link>
+          )
         }
       >
         <p role="alert">
-          O link pode ter expirado ou já ter sido usado. Confira se abriu o link da mensagem mais recente ou
-          envie o cadastro novamente.
+          {INSCRICOES.encerradas
+            ? 'O link pode ter expirado ou já ter sido usado. Como as inscrições foram encerradas, não é mais possível enviar um novo cadastro — se precisar de ajuda, procure a coordenação do programa.'
+            : 'O link pode ter expirado ou já ter sido usado. Confira se abriu o link da mensagem mais recente ou envie o cadastro novamente.'}
         </p>
       </CartaoStatus>
     )

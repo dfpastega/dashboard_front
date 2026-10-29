@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { ROTAS } from '../_lib/config'
+import { INSCRICOES, ROTAS } from '../_lib/config'
 import { FaixaMarcas } from './marcas'
 
 export function Cabecalho() {
@@ -22,7 +22,7 @@ export function Cabecalho() {
           </span>
         </Link>
         <ul className="flex items-center gap-2 sm:gap-4">
-          <li className="hidden md:block">
+          <li className={INSCRICOES.encerradas ? undefined : "hidden md:block"}>
             <Link
               href={ROTAS.sobre}
               className="rounded-md px-2 py-1 text-sm font-medium text-white/90 underline-offset-4 hover:text-white hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
@@ -30,15 +30,19 @@ export function Cabecalho() {
               Sobre o plano de capacitação
             </Link>
           </li>
-          <li>
-            <Link
-              href={ROTAS.formulario}
-              className="inline-flex h-10 shrink-0 items-center whitespace-nowrap rounded-full bg-abih-azul px-4 text-sm font-semibold text-white transition-colors hover:bg-abih-azul-escuro focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:px-5"
-            >
-              <span className="sm:hidden">Cadastrar hotel</span>
-              <span className="hidden sm:inline">Cadastrar meu hotel</span>
-            </Link>
-          </li>
+          {/* Com as inscrições encerradas o convite sai do cabeçalho: levaria ao aviso
+              de encerramento, não a um formulário. */}
+          {!INSCRICOES.encerradas && (
+            <li>
+              <Link
+                href={ROTAS.formulario}
+                className="inline-flex h-10 shrink-0 items-center whitespace-nowrap rounded-full bg-abih-azul px-4 text-sm font-semibold text-white transition-colors hover:bg-abih-azul-escuro focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:px-5"
+              >
+                <span className="sm:hidden">Cadastrar hotel</span>
+                <span className="hidden sm:inline">Cadastrar meu hotel</span>
+              </Link>
+            </li>
+          )}
         </ul>
       </nav>
     </header>

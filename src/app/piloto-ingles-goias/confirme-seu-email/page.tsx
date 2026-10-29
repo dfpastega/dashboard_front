@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { MailCheck } from 'lucide-react'
-import { ROTAS } from '../_lib/config'
+import { INSCRICOES, ROTAS } from '../_lib/config'
 import { comSimulacao, modoSimulacao, type ModoSimulacao } from '../_lib/cadastro-service'
 import { emailDoUltimoEnvio } from '../_lib/rascunho'
 import { CartaoStatus, linkBotao } from '../_components/cartao-status'
@@ -25,9 +25,12 @@ export default function ConfirmeSeuEmailPage() {
       titulo="Confirme seu e-mail para concluir o cadastro"
       acoes={
         <>
-          <Link href={comSimulacao(ROTAS.formulario, simulacao)} className={linkBotao.secundario}>
-            Corrigir dados do cadastro
-          </Link>
+          {/* Sem formulário no ar, "corrigir dados" não teria destino. */}
+          {!INSCRICOES.encerradas && (
+            <Link href={comSimulacao(ROTAS.formulario, simulacao)} className={linkBotao.secundario}>
+              Corrigir dados do cadastro
+            </Link>
+          )}
           {simulacao && (
             <Link
               href={`${ROTAS.confirmar}?token=pre-visualizacao&simular=${simulacao}`}
