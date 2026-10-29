@@ -47,3 +47,28 @@ export const MARCAS: Record<'sebrae' | 'abih' | 'storm', Marca> = {
 
 /** Política de privacidade do cadastro. Interna; troque por uma URL externa se a política for publicada em outro lugar. */
 export const POLITICA_PRIVACIDADE_URL: string = ROTAS.politicaPrivacidade
+
+/**
+ * Encerramento das inscrições.
+ *
+ * Com `encerradas: true`, a landing deixa de oferecer o formulário e passa a exibir o aviso.
+ * A rota de confirmação (`/confirmar?token=…`) **continua funcionando**: quem já se cadastrou e
+ * ainda não clicou no link do e-mail precisa conseguir concluir, senão o encerramento descarta
+ * cadastros que já estavam no funil.
+ *
+ * Para reabrir, basta voltar `encerradas` para false.
+ */
+export const INSCRICOES = {
+  encerradas: true,
+  /** Data em que as inscrições foram encerradas, como o visitante deve ler. */
+  encerradasEm: '28 de outubro de 2026',
+  titulo: 'As inscrições foram encerradas',
+  mensagem:
+    'O prazo de cadastro para o plano de capacitação em inglês do trade de Goiás terminou em '
+    + '28 de outubro de 2026. Os hotéis inscritos serão contatados pela coordenação do programa '
+    + 'pelo e-mail informado no cadastro.',
+  /** Quem já recebeu o e-mail e ainda não confirmou continua podendo concluir. */
+  avisoConfirmacaoPendente:
+    'Se você se cadastrou e ainda não confirmou seu e-mail, o link enviado continua válido até o '
+    + 'prazo indicado na mensagem que você recebeu.',
+} as const
