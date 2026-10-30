@@ -38,23 +38,17 @@ export function MapaHoteis({ pontos, escuro, focado, onFocar }: Props) {
       const mapa = L.map(elRef.current, { scrollWheelZoom: true, attributionControl: true })
       mapaRef.current = mapa
 
-      // Tiles claros ou escuros conforme o tema do painel. Os dois são gratuitos e
-      // sem chave de API; a atribuição é obrigatória pela licença — não remover.
+      // OpenStreetMap nos dois temas: sem chave de API e com licença clara. A
+      // atribuição é obrigatória — não remover.
       //
-      // Isto não é apenas cosmético: a rampa de cor dos marcadores foi escolhida contra
-      // o fundo correspondente. Tile claro com a rampa escura, tile escuro com a clara.
-      if (escuro) {
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-          maxZoom: 19,
-          attribution:
-            '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
-        }).addTo(mapa)
-      } else {
-        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          maxZoom: 19,
-          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-        }).addTo(mapa)
-      }
+      // Tentou-se a CARTO para o tema escuro e ela passou a EXIGIR chave: devolve 200
+      // com um tile de aviso "API KEY REQUIRED" estampado, que é o que apareceu no
+      // mapa. O escuro agora sai de um filtro CSS sobre os tiles (ver `estiloEscuro`),
+      // aplicado só ao painel de tiles para não inverter os marcadores.
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      }).addTo(mapa)
 
       const funcionarios = pontos.map((p) => p.employees)
       const minimo = Math.min(...funcionarios)
@@ -140,7 +134,32 @@ export function MapaHoteis({ pontos, escuro, focado, onFocar }: Props) {
     m.openPopup()
   }, [focado])
 
-  return <div ref={elRef} className="h-full w-full rounded-xl" role="application" aria-label="Mapa dos hotéis inscritos" />
+  return (
+    <>
+      {/*
+        Escurece os tiles sem depender de um provedor pago. O filtro vale apenas para
+        `.leaflet-tile-pane`: os marcadores vivem em `.leaflet-overlay-pane` e ficam
+        intactos, o que mantém a rampa de azul lendo contra fundo escuro, como foi
+        escolhida. `hue-rotate` devolve as matizes que o `invert` trocou.
+      */}
+      <style>{`
+        .mapa-escuro .leaflet-tile-pane {
+          filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.88) saturate(0.7);
+        }
+        .mapa-escuro .leaflet-popup-content-wrapper,
+        .mapa-escuro .leaflet-popup-tip { background: #1f1f1e; color: #e8e8e6; }
+        .mapa-escuro .leaflet-control-zoom a { background: #2a2a28; color: #e8e8e6; border-color: #3a3a38; }
+        .mapa-escuro .leaflet-control-attribution { background: rgba(26,26,25,.8); color: #9a9a96; }
+        .mapa-escuro .leaflet-control-attribution a { color: #86b6ef; }
+      `}</style>
+      <div
+        ref={elRef}
+        className={`h-full w-full rounded-xl${escuro ? ' mapa-escuro' : ''}`}
+        role="application"
+        aria-label="Mapa dos hotéis inscritos"
+      />
+    </>
+  )
 }
 
 function escaparHtml(v: string): string {
