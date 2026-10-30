@@ -20,9 +20,21 @@ export interface UserContract {
 
 export interface UserContextValue {
   contracts: UserContract[]
+  /**
+   * Role da sessão, como em GET /auth/me.
+   *
+   * Serve para a tela ANTECIPAR o que o backend vai responder — nunca para decidir
+   * acesso. Quem decide é o servidor; errar aqui mostra um botão a mais, não libera
+   * nada. É o que permite ao super admin abrir o painel de um contrato de terceiro
+   * sabendo de antemão se poderá escrever nele.
+   */
+  roleId: string
 }
 
-export const UserContext = createContext<UserContextValue>({ contracts: [] })
+export const UserContext = createContext<UserContextValue>({ contracts: [], roleId: '' })
+
+/** Quem pode incluir e revogar beneficiários — espelha WRITE_ROLES do backend. */
+export const ROLES_ESCRITA_AFINIDADE = ['contract_manager', 'admin', 'super_admin']
 
 export function useUserContext() {
   return useContext(UserContext)

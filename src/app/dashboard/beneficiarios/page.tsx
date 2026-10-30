@@ -10,6 +10,12 @@
  * A lista de elegíveis existe apenas como HMAC: depois de enviada, ninguém consegue
  * relê-la, nem a Storm. Por isso a tela mostra CONTAGENS, não nomes, e diz isso em voz
  * alta — o gestor precisa saber disso antes de enviar, não depois de procurar a lista.
+ *
+ * Há uma segunda porta de entrada: o super admin chega por /dashboard/admin/afinidade
+ * com `?contractId=` de um contrato que não é dele. Isso funciona sem rota nova porque
+ * `assertContractAccess` já libera super_admin em todo o caminho /my — o que faltava era
+ * a TELA, que descartava um contrato ausente de /my/contracts. Quem autoriza continua
+ * sendo o servidor: a tela só pergunta (`/my/summary`) e acredita na resposta.
  */
 
 import { useState, useEffect, useCallback, Suspense } from 'react'
@@ -29,10 +35,11 @@ import {
 import { Textarea } from '@/components/ui/textarea'
 import {
   UserPlus, Loader2, Upload, RefreshCw, Building2, AlertCircle, Info, Eye, EyeOff,
-  ShieldOff, Search, Users,
+  ShieldOff, Search, Users, Shield, ArrowLeft,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, handleUnauthorized } from '@/lib/api'
+import { useUserContext, ROLES_ESCRITA_AFINIDADE } from '@/contexts/user-context'
 import { maskCpf, maskDate } from '@/lib/masks'
 import { cn } from '@/lib/utils'
 
@@ -592,6 +599,18 @@ function BeneficiariosContent() {
   const [revealed, setRevealed] = useState(false)
   const [revokeTarget, setRevokeTarget] = useState<RevokeTarget | null>(null)
 
+  const { roleId } = useUserContext()
+
+  /**
+   * Contrato aberto pela tela admin, que não está em /my/contracts.
+   *
+   * `null` significa "não é esse o caso"; `'carregando'` evita que a tela pisque o
+   * seletor de contrato (ou o aviso de "nenhum contrato") entre o fim de /my/contracts
+   * e a resposta de /my/summary.
+   */
+  const [adminContract, setAdminContract] =
+    useState<MyContract | 'carregando' | 'negado' | null>(null)
+
   const loadContracts = useCallback(async () => {
     try {
       const { data } = await api.get<MyContract[]>('/api/affinity/my/contracts')
@@ -604,12 +623,55 @@ function BeneficiariosContent() {
 
   useEffect(() => { loadContracts() }, [loadContracts])
 
-  // Com um contrato só, não faz sentido pedir escolha.
-  const selected = contracts?.length === 1
-    ? contracts[0]
-    : contracts?.find((c) => c.id === contractIdParam) ?? null
+  // Contrato da URL quando ele é do próprio usuário.
+  const proprio = contractIdParam
+    ? contracts?.find((c) => c.id === contractIdParam) ?? null
+    : null
 
-  const needsSelection = !!contracts && contracts.length > 1 && !selected
+  /**
+   * Contrato de terceiro: pergunta ao servidor em vez de conferir o role aqui.
+   *
+   * Se /my/summary responder 200, `assertContractAccess` já aprovou — e essa é a mesma
+   * autorização que vale para todas as outras chamadas da tela. Checar `roleId` no
+   * cliente para decidir se pode tentar seria uma segunda cópia da regra, que um dia
+   * diverge da do servidor.
+   */
+  useEffect(() => {
+    if (!contracts || !contractIdParam || proprio) { setAdminContract(null); return }
+
+    let cancelado = false
+    setAdminContract('carregando')
+
+    api.get<Slots>(`/api/affinity/my/summary?contractId=${encodeURIComponent(contractIdParam)}`)
+      .then(({ data }) => {
+        if (cancelado) return
+        setAdminContract({
+          id: contractIdParam,
+          // O nome vem do StormBot porque é de lá que vêm os números ao lado dele.
+          name: data.customerName,
+          stormbotContractId: data.contractId,
+          isPrimary: false,
+          canWrite: ROLES_ESCRITA_AFINIDADE.includes(roleId),
+          slots: data,
+        })
+      })
+      .catch(() => { if (!cancelado) setAdminContract('negado') })
+
+    return () => { cancelado = true }
+  }, [contracts, contractIdParam, proprio, roleId])
+
+  const admin = typeof adminContract === 'object' ? adminContract : null
+  const resolvendoAdmin = adminContract === 'carregando'
+  const adminNegado = adminContract === 'negado'
+
+  // Com um contrato só e sem contrato pedido na URL, não faz sentido pedir escolha.
+  const selected =
+    proprio ??
+    admin ??
+    (!contractIdParam && contracts?.length === 1 ? contracts[0] : null)
+
+  const needsSelection =
+    !!contracts && contracts.length > 1 && !selected && !resolvendoAdmin
 
   const loadBatches = useCallback(async (contractId: string) => {
     setLoadingBatches(true)
@@ -648,12 +710,25 @@ function BeneficiariosContent() {
     loadActivated(selected.id)
   }, [selected, loadBatches, loadActivated])
 
-  /** Recarrega contratos (slots), lotes e roster após uma ação. */
+  /**
+   * Recarrega contratos (slots), lotes e roster após uma ação.
+   *
+   * No contrato aberto como admin os slots NÃO vêm de /my/contracts — ele não está lá.
+   * Sem a chamada extra, revogar alguém atualizava o roster e deixava a barra de vagas
+   * congelada no número anterior.
+   */
   async function refresh(contractId: string) {
     await Promise.all([
       loadContracts(),
       loadBatches(contractId),
       loadActivated(contractId, revealed),
+      admin
+        ? api
+            .get<Slots>(`/api/affinity/my/summary?contractId=${encodeURIComponent(contractId)}`)
+            .then(({ data }) => setAdminContract((atual) =>
+              typeof atual === 'object' && atual ? { ...atual, slots: data } : atual))
+            .catch(() => { /* a tela segue com o número anterior; a próxima ação tenta de novo */ })
+        : Promise.resolve(),
     ])
   }
 
@@ -745,7 +820,7 @@ function BeneficiariosContent() {
 
   // ── Estados de carregamento / vazio ────────────────────────────────────────
 
-  if (!contracts) {
+  if (!contracts || resolvendoAdmin) {
     return (
       <div className="flex items-center justify-center py-24">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -753,7 +828,30 @@ function BeneficiariosContent() {
     )
   }
 
-  if (contracts.length === 0) {
+  /*
+    Veio com `?contractId=` e o servidor recusou.
+    
+    Cair no "nenhum contrato de afinidade" genérico aqui mandaria a pessoa falar com o
+    administrador quando ela PODE ser o administrador — e o problema é outro: o id da
+    URL. Dizer qual id falhou é o que permite descobrir que o link estava velho.
+  */
+  if (adminNegado) {
+    return (
+      <Alert variant="destructive">
+        <AlertCircle className="h-4 w-4" />
+        <AlertTitle>Contrato indisponível</AlertTitle>
+        <AlertDescription>
+          Não foi possível abrir o contrato <code>{contractIdParam}</code>. Ele pode não
+          existir, não ser da modalidade afinidade, ainda não estar vinculado ao StormBot,
+          ou não estar liberado para a sua conta.
+        </AlertDescription>
+      </Alert>
+    )
+  }
+
+  // `admin` à frente: quem abriu o contrato de um cliente não tem contrato de afinidade
+  // próprio, e sem esta guarda veria "nenhum contrato" com o painel pronto atrás.
+  if (contracts.length === 0 && !admin) {
     return (
       <Alert>
         <AlertCircle className="h-4 w-4" />
@@ -841,17 +939,44 @@ function BeneficiariosContent() {
           <div>
             <h1 className="text-2xl font-bold">Beneficiários</h1>
             <p className="text-sm text-muted-foreground">
-              Quem da sua base pode ativar o curso pelo WhatsApp.
+              {admin
+                ? `Quem da base de ${selected.name} pode ativar o curso pelo WhatsApp.`
+                : 'Quem da sua base pode ativar o curso pelo WhatsApp.'}
             </p>
           </div>
         </div>
-        {contracts.length > 1 && (
+        {admin ? (
+          <Button variant="outline" size="sm" onClick={() => router.push('/dashboard/admin/afinidade')}>
+            <ArrowLeft className="mr-2 h-3.5 w-3.5" />
+            Voltar para Afinidade
+          </Button>
+        ) : contracts.length > 1 ? (
           <Button variant="outline" size="sm" onClick={() => router.push('/dashboard/beneficiarios')}>
             <Building2 className="mr-2 h-3.5 w-3.5" />
             Trocar contrato
           </Button>
-        )}
+        ) : null}
       </div>
+
+      {/*
+        O aviso não é decoração.
+
+        Esta tela é idêntica à do cliente, inclusive nos botões que enviam lista e
+        revogam acesso — e quem chega por aqui normalmente tem vários contratos abertos
+        em abas. Sem dizer de quem é o contrato, a chance de aplicar no cliente errado
+        uma lista que era de outro é real, e revogação não se desfaz pela tela.
+      */}
+      {admin && (
+        <Alert className="border-primary/40 bg-primary/5">
+          <Shield className="h-4 w-4" />
+          <AlertTitle>Painel do cliente, visto como administrador</AlertTitle>
+          <AlertDescription>
+            Você está no contrato <strong className="text-foreground">{selected.name}</strong>{' '}
+            (#{selected.stormbotContractId}), que não é seu. O que você fizer aqui vale para
+            o cliente, e os envios ficam registrados no seu e-mail.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {outOfTerm && (
         <Alert variant="destructive">
