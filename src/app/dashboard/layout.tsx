@@ -59,7 +59,7 @@ export default function DashboardLayout({
   if (!user) return null
 
   return (
-    <UserContext.Provider value={{ contracts: user.contracts }}>
+    <UserContext.Provider value={{ contracts: user.contracts, roleId: user.roleId }}>
       <div className="flex h-dvh overflow-hidden">
         <Sidebar userRole={user.roleId} userContracts={user.contracts} />
 
