@@ -64,7 +64,7 @@ function DashboardContent() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
+      <div className="flex min-h-[60dvh] items-center justify-center">
         <div className="text-center space-y-4">
           <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
           <p className="text-muted-foreground">Carregando dashboard...</p>
@@ -76,7 +76,7 @@ function DashboardContent() {
   // Seletor de contrato
   if (needsSelection) {
     return (
-      <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
+      <div className="flex min-h-[60dvh] items-center justify-center">
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -139,9 +139,21 @@ function DashboardContent() {
   const activeContract = contracts.find(c => c.id === contractIdParam)
 
   return (
-    <div className="h-full w-full -m-6">
+    /*
+      O iframe do Metabase ocupa a tela toda abaixo do cabeçalho.
+
+      A altura vem de `100dvh - 4rem` (a faixa do cabeçalho) e o iframe pega o
+      que sobra com `flex-1` — antes a conta era feita à mão e tinha dois
+      problemas: subtraía 7rem quando havia a barra de contrato, o que errava
+      por alguns pixels, e um `minHeight: 600px` que estourava a tela em
+      qualquer celular deitado.
+
+      As margens negativas anulam o padding do <main>; sem `w-full` para o box
+      poder crescer até as duas bordas, em vez de parar antes da direita.
+    */
+    <div className="-m-4 flex h-[calc(100dvh-4rem)] flex-col sm:-m-6">
       {contracts.length > 1 && contractIdParam && (
-        <div className="flex items-center gap-2 px-4 py-2 border-b text-sm text-muted-foreground bg-background">
+        <div className="flex flex-shrink-0 flex-wrap items-center gap-2 border-b bg-background px-4 py-2 text-sm text-muted-foreground">
           <Building2 className="h-3.5 w-3.5" />
           <span>
             Exibindo: <strong className="text-foreground">{activeContract?.name ?? contractIdParam}</strong>
@@ -154,8 +166,7 @@ function DashboardContent() {
       {iframeUrl && (
         <iframe
           src={iframeUrl}
-          className="w-full border-0"
-          style={{ height: contracts.length > 1 ? 'calc(100vh - 7rem)' : 'calc(100vh - 4rem)', minHeight: '600px' }}
+          className="min-h-0 w-full flex-1 border-0"
           title="Metabase Dashboard"
         />
       )}
@@ -166,7 +177,7 @@ function DashboardContent() {
 export default function DashboardPage() {
   return (
     <Suspense fallback={
-      <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
+      <div className="flex min-h-[60dvh] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     }>

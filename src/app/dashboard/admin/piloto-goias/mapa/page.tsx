@@ -66,7 +66,7 @@ export default function MapaPilotoGoiasPage() {
   const aproximados = dados?.pontos.filter((p) => p.geoPrecision !== 'endereco').length ?? 0
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold">Capacitação Goiás — mapa dos inscritos</h1>
@@ -108,7 +108,7 @@ export default function MapaPilotoGoiasPage() {
 
       <div className="grid gap-4 lg:grid-cols-[1fr_260px]">
         <Card className="overflow-hidden p-0">
-          <div className="h-[600px] w-full">
+          <div className="h-[clamp(20rem,65dvh,44rem)] w-full">
             {dados && dados.pontos.length > 0 ? (
               <MapaHoteis pontos={dados.pontos} escuro={escuro} focado={focado} onFocar={onFocar} />
             ) : (

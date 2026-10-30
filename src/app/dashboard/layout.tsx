@@ -47,7 +47,7 @@ export default function DashboardLayout({
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center">
+      <div className="flex h-dvh items-center justify-center">
         <div className="text-center">
           <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent motion-reduce:animate-[spin_1.5s_linear_infinite]" />
           <p className="mt-4 text-sm text-muted-foreground">Carregando...</p>
@@ -60,16 +60,16 @@ export default function DashboardLayout({
 
   return (
     <UserContext.Provider value={{ contracts: user.contracts }}>
-      <div className="flex h-screen overflow-hidden">
+      <div className="flex h-dvh overflow-hidden">
         <Sidebar userRole={user.roleId} userContracts={user.contracts} />
 
-        <div className="flex flex-1 flex-col overflow-hidden">
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           <Header
             user={user}
             mobileMenuButton={<MobileSidebar userRole={user.roleId} userContracts={user.contracts} />}
           />
 
-          <main className="flex-1 overflow-y-auto bg-background p-6">
+          <main className="min-h-0 flex-1 overflow-y-auto bg-background p-4 sm:p-6">
             {children}
           </main>
         </div>

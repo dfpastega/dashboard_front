@@ -292,8 +292,8 @@ export default function CarrosselStudioPage() {
 
   if (!open) {
     return (
-      <div className="space-y-6 p-6">
-        <div className="flex items-center justify-between">
+      <div className="space-y-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold">Carrossel Studio</h1>
             <p className="text-muted-foreground text-sm">
@@ -393,8 +393,8 @@ export default function CarrosselStudioPage() {
   const hasSecond = Boolean(doc.cards[0]?.button2Text?.trim())
 
   return (
-    <div className="space-y-4 p-6">
-      <div className="flex items-center justify-between gap-4">
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3 min-w-0">
           <Button variant="ghost" size="icon" onClick={closeEditor}>
             <ArrowLeft className="h-4 w-4" />

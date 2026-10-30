@@ -418,7 +418,7 @@ function ConfirmUploadDialog({ preview, fileName, sending, onCancel, onConfirm }
 
   return (
     <Dialog open onOpenChange={(o) => { if (!o && !sending) onCancel() }}>
-      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>
             {ehSubstituicao ? 'Confirmar a nova lista do contrato' : 'Algumas linhas não podem ser enviadas'}
@@ -436,7 +436,7 @@ function ConfirmUploadDialog({ preview, fileName, sending, onCancel, onConfirm }
         {/* ── modo substituir: o que muda na lista ── */}
         {ehSubstituicao && diff && (
           <>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <div className="rounded-md border p-3 text-center">
                 <p className="text-2xl font-semibold tabular-nums">{diff.manter}</p>
                 <p className="text-xs text-muted-foreground">permanecem</p>
@@ -501,7 +501,7 @@ function ConfirmUploadDialog({ preview, fileName, sending, onCancel, onConfirm }
         {preview.invalidRows.length > 0 && (
           <div className="space-y-2">
             {!ehSubstituicao && (
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="rounded-md border p-3 text-center">
                   <p className="text-2xl font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
                     {preview.validRows}
@@ -988,7 +988,7 @@ function BeneficiariosContent() {
 
       {/* Beneficiários que ativaram — a única lista de pessoas que este modelo produz */}
       <Card>
-        <CardHeader className="flex flex-row items-start justify-between space-y-0 gap-3">
+        <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3 space-y-0">
           <div>
             <CardTitle className="text-base flex items-center gap-2">
               <Users className="h-4 w-4" />
@@ -1090,7 +1090,7 @@ function BeneficiariosContent() {
 
       {/* Histórico de envios */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0">
+        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3 space-y-0">
           <div>
             <CardTitle className="text-base">Envios</CardTitle>
             <CardDescription>Pode levar alguns segundos até um envio aparecer aqui.</CardDescription>

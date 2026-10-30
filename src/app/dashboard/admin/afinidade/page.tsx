@@ -301,7 +301,7 @@ export default function AfinidadePage() {
 
       {/* Lotes */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0">
+        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3 space-y-0">
           <div>
             <CardTitle className="text-base">Lotes de ingestão</CardTitle>
             <CardDescription>Progresso via réplica (alguns segundos de atraso).</CardDescription>

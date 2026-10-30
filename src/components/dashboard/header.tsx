@@ -67,8 +67,8 @@ export function Header({ user, mobileMenuButton }: HeaderProps) {
   }
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background px-6">
-      <div className="flex items-center gap-4">
+    <header className="sticky top-0 z-30 flex h-16 flex-shrink-0 items-center justify-between gap-2 border-b bg-background px-4 sm:px-6">
+      <div className="flex min-w-0 items-center gap-2 sm:gap-4">
         {/* Botão de menu mobile */}
         {mobileMenuButton && (
           <div className="lg:hidden">
@@ -92,7 +92,7 @@ export function Header({ user, mobileMenuButton }: HeaderProps) {
         />
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex flex-shrink-0 items-center gap-1 sm:gap-4">
         {/* Theme Toggle */}
         <Button
           variant="ghost"

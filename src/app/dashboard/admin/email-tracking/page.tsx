@@ -265,8 +265,8 @@ export default function EmailTrackingPage() {
   // ─────────────────────────────────────────────────────────────────────────
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">Email Tracking</h1>
           <p className="text-muted-foreground text-sm">Rastreamento de cliques em links de campanhas de email</p>
@@ -464,7 +464,7 @@ export default function EmailTrackingPage() {
 
       {/* ── Dialog: Ver cliques ────────────────────────────────────────────── */}
       <Dialog open={showClicksDialog} onOpenChange={setShowClicksDialog}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-4xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <MousePointerClick className="h-5 w-5" />
