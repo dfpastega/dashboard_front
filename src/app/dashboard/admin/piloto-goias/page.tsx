@@ -23,9 +23,7 @@ import {
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
-import {
-  AlertCircle, ChevronLeft, ChevronRight, ExternalLink, Eye, EyeOff, Loader2, Search,
-} from 'lucide-react'
+import { AlertCircle, ChevronLeft, ChevronRight, ExternalLink, Eye, EyeOff, Loader2, Map, Search } from 'lucide-react'
 import { api } from '@/lib/api'
 import { maskCep, maskCnpj, maskPhone } from '@/lib/masks'
 
@@ -58,6 +56,7 @@ interface Resposta {
 }
 
 const LANDING_URL = '/piloto-ingles-goias'
+const PAGINA_URL = '/dashboard/admin/piloto-goias'
 
 function formatarData(iso: string) {
   return new Date(iso).toLocaleString('pt-BR', {
@@ -131,11 +130,18 @@ export default function PilotoGoiasAdminPage() {
             Cadastros confirmados pela landing do plano de capacitação em inglês para o trade de Goiás (Sebrae + ABIH)
           </p>
         </div>
-        <Button variant="outline" asChild>
-          <Link href={LANDING_URL} target="_blank" rel="noopener noreferrer">
-            <ExternalLink className="h-4 w-4 mr-2" />Abrir landing
-          </Link>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button asChild>
+            <Link href={`${PAGINA_URL}/mapa`}>
+              <Map className="h-4 w-4 mr-2" />Ver no mapa
+            </Link>
+          </Button>
+          <Button variant="outline" asChild>
+            <Link href={LANDING_URL} target="_blank" rel="noopener noreferrer">
+              <ExternalLink className="h-4 w-4 mr-2" />Abrir landing
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
