@@ -150,3 +150,43 @@
   }
 }
 
+
+/**
+ * Barra de rolagem fina e sempre visível.
+ *
+ * O padrão do macOS é a barra flutuante, que só aparece durante o gesto e some
+ * depois — num menu lateral isso esconde que existe mais coisa abaixo, que foi
+ * exatamente a queixa.
+ *
+ * As duas formas de estilizar não convivem: a partir do Chrome 121, declarar
+ * `scrollbar-width` ou `scrollbar-color` faz o navegador IGNORAR os
+ * pseudo-elementos `::-webkit-scrollbar`. Então cada motor recebe só a sua.
+ * Os pseudo-elementos vêm primeiro porque são os determinísticos no Chrome e no
+ * Safari — eles reservam espaço para a barra, que é o que garante que ela
+ * apareça no macOS em vez de ficar flutuando.
+ */
+.rolagem-fina::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.rolagem-fina::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.rolagem-fina::-webkit-scrollbar-thumb {
+  background-color: var(--border);
+  border-radius: 9999px;
+}
+
+.rolagem-fina::-webkit-scrollbar-thumb:hover {
+  background-color: var(--muted-foreground);
+}
+
+/* Firefox não conhece os pseudo-elementos acima e cai aqui. */
+@supports not selector(::-webkit-scrollbar) {
+  .rolagem-fina {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+}

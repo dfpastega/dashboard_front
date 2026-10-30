@@ -238,7 +238,7 @@ export default function CuponsAdminPage() {
 
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <CardTitle>Cupons</CardTitle>
               <CardDescription>
@@ -347,7 +347,7 @@ export default function CuponsAdminPage() {
 
       {/* Dialog de Criação */}
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Criar Novo Cupom</DialogTitle>
             <DialogDescription>
@@ -355,7 +355,7 @@ export default function CuponsAdminPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <Label htmlFor="create-code">Código *</Label>
                 <Input
@@ -396,7 +396,7 @@ export default function CuponsAdminPage() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <Label htmlFor="create-type">Tipo de Desconto *</Label>
                 <Select
@@ -426,7 +426,7 @@ export default function CuponsAdminPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <Label htmlFor="create-validFrom">Válido de</Label>
                 <Input
@@ -447,7 +447,7 @@ export default function CuponsAdminPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <Label htmlFor="create-maxUses">Máximo de Usos</Label>
                 <Input
@@ -484,7 +484,7 @@ export default function CuponsAdminPage() {
 
       {/* Dialog de Edição */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Editar Cupom</DialogTitle>
             <DialogDescription>
@@ -510,7 +510,7 @@ export default function CuponsAdminPage() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <Label htmlFor="edit-type">Tipo de Desconto *</Label>
                 <Select
@@ -540,7 +540,7 @@ export default function CuponsAdminPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <Label htmlFor="edit-validFrom">Válido de</Label>
                 <Input
@@ -561,7 +561,7 @@ export default function CuponsAdminPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <Label htmlFor="edit-maxUses">Máximo de Usos</Label>
                 <Input

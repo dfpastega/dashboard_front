@@ -435,8 +435,8 @@ export default function FlowsStudioPage() {
 
   if (!openFlow) {
     return (
-      <div className="space-y-6 p-6">
-        <div className="flex items-center justify-between">
+      <div className="space-y-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold">Flows Studio</h1>
             <p className="text-muted-foreground text-sm">
@@ -548,8 +548,8 @@ export default function FlowsStudioPage() {
   const pct = Math.min(100, Math.round((estimated / LIMIT_BYTES) * 100))
 
   return (
-    <div className="space-y-4 p-6">
-      <div className="flex items-center justify-between gap-4">
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3 min-w-0">
           <Button variant="ghost" size="icon" onClick={closeEditor}>
             <ArrowLeft className="h-4 w-4" />

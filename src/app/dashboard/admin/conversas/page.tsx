@@ -524,7 +524,7 @@ export default function ConversasAdminPage() {
           <div
             ref={scrollRef}
             onScroll={onScroll}
-            className="h-[60vh] space-y-1.5 overflow-y-auto bg-[#efeae2] py-3 dark:bg-[#0b141a]"
+            className="rolagem-fina h-[clamp(16rem,60dvh,40rem)] space-y-1.5 overflow-y-auto overscroll-contain bg-[#efeae2] py-3 dark:bg-[#0b141a]"
           >
             {loadingOlder && (
               <div className="flex justify-center py-2">

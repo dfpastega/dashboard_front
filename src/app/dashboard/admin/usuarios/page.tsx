@@ -282,7 +282,7 @@ export default function UsuariosAdminPage() {
 
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <CardTitle>Usuários</CardTitle>
               <CardDescription>{filteredUsers.length} usuário(s) encontrado(s)</CardDescription>
@@ -294,7 +294,7 @@ export default function UsuariosAdminPage() {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex gap-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:gap-4">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -305,7 +305,7 @@ export default function UsuariosAdminPage() {
               />
             </div>
             <Select value={roleFilter} onValueChange={setRoleFilter}>
-              <SelectTrigger className="w-[200px]">
+              <SelectTrigger className="w-full sm:w-[200px]">
                 <SelectValue placeholder="Filtrar por role" />
               </SelectTrigger>
               <SelectContent>
@@ -438,7 +438,7 @@ export default function UsuariosAdminPage() {
 
       {/* Dialog de Edição */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Editar Usuário</DialogTitle>
             <DialogDescription>{editingUser?.email}</DialogDescription>
@@ -476,12 +476,12 @@ export default function UsuariosAdminPage() {
               {editContracts.length === 0 && (
                 <p className="text-sm text-muted-foreground">Nenhum contrato vinculado.</p>
               )}
-              <div className="space-y-1.5">
+              <div className="rolagem-fina max-h-[min(38dvh,17rem)] space-y-1.5 overflow-y-auto overscroll-contain pr-1">
                 {editContracts.map(c => (
-                  <div key={c.contractId} className="flex items-center gap-2 p-2 rounded-md border bg-muted/40">
-                    <span className="flex-1 text-sm font-medium">{c.name}</span>
+                  <div key={c.contractId} className="flex items-center gap-2 rounded-md border bg-muted/40 p-2">
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium" title={c.name}>{c.name}</span>
                     {c.isPrimary && (
-                      <Badge variant="default" className="text-xs gap-1">
+                      <Badge variant="default" className="flex-shrink-0 gap-1 text-xs">
                         <Star className="h-2.5 w-2.5" />principal
                       </Badge>
                     )}
@@ -489,7 +489,7 @@ export default function UsuariosAdminPage() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-6 w-6"
+                        className="h-6 w-6 flex-shrink-0"
                         title="Definir como principal"
                         disabled={savingContracts}
                         onClick={() => handleSetPrimary(c.contractId)}
@@ -500,7 +500,7 @@ export default function UsuariosAdminPage() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-6 w-6"
+                      className="h-6 w-6 flex-shrink-0"
                       disabled={savingContracts}
                       onClick={() => handleRemoveContract(c.contractId)}
                     >

@@ -91,7 +91,7 @@ export default function DynamicDashboardPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
+      <div className="flex min-h-[60dvh] items-center justify-center">
         <div className="text-center space-y-4">
           <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
           <p className="text-muted-foreground">Carregando dashboard...</p>
@@ -102,7 +102,7 @@ export default function DynamicDashboardPage() {
 
   if (needsContractSelection) {
     return (
-      <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
+      <div className="flex min-h-[60dvh] items-center justify-center">
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -136,7 +136,7 @@ export default function DynamicDashboardPage() {
 
   if (error) {
     return (
-      <div className="container mx-auto p-6 max-w-2xl">
+      <div className="mx-auto w-full max-w-2xl">
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Erro</AlertTitle>
@@ -148,7 +148,7 @@ export default function DynamicDashboardPage() {
 
   if (!iframeUrl) {
     return (
-      <div className="container mx-auto p-6 max-w-2xl">
+      <div className="mx-auto w-full max-w-2xl">
         <Alert>
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Dashboard Indisponível</AlertTitle>
@@ -161,9 +161,10 @@ export default function DynamicDashboardPage() {
   }
 
   return (
-    <div className="h-full w-full">
+    // Mesmo enquadramento da home: ver o comentário em app/dashboard/page.tsx.
+    <div className="-m-4 flex h-[calc(100dvh-4rem)] flex-col sm:-m-6">
       {contracts.length > 1 && contractId && (
-        <div className="flex items-center gap-2 px-4 py-2 border-b text-sm text-muted-foreground">
+        <div className="flex flex-shrink-0 flex-wrap items-center gap-2 border-b bg-background px-4 py-2 text-sm text-muted-foreground">
           <Building2 className="h-3.5 w-3.5" />
           <span>
             Exibindo: <strong className="text-foreground">
@@ -182,11 +183,9 @@ export default function DynamicDashboardPage() {
       )}
       <iframe
         src={iframeUrl}
-        frameBorder="0"
-        width="100%"
-        height="100%"
         allowTransparency
-        className="min-h-[calc(100vh-4rem)]"
+        className="min-h-0 w-full flex-1 border-0"
+        title="Metabase Dashboard"
       />
     </div>
   )

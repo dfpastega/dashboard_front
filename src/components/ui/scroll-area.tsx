@@ -13,7 +13,9 @@ function ScrollArea({
   return (
     <ScrollAreaPrimitive.Root
       data-slot="scroll-area"
-      className={cn("relative", className)}
+      // `overflow-hidden` no Root: sem ele o Root cresce com o conteúdo e o
+      // Viewport (`size-full`) cresce junto — nada rola, tudo transborda.
+      className={cn("relative overflow-hidden", className)}
       {...props}
     >
       <ScrollAreaPrimitive.Viewport

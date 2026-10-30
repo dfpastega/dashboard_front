@@ -122,7 +122,7 @@ export default function PilotoGoiasAdminPage() {
   const revelado = dados?.contatosRevelados ?? false
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold">Capacitação Goiás — hotéis cadastrados</h1>

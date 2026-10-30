@@ -360,7 +360,7 @@ export default function DashboardsAdminPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Gestão de Dashboards</h1>
           <p className="text-muted-foreground">
@@ -489,7 +489,7 @@ export default function DashboardsAdminPage() {
 
       {/* Dialog de Criar/Editar */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>
               {editingDashboard ? 'Editar Dashboard' : 'Novo Dashboard'}
@@ -609,7 +609,7 @@ export default function DashboardsAdminPage() {
             </div>
 
             {/* Ícone e Ordem */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="icon">Ícone (opcional)</Label>
                 <Input
@@ -705,7 +705,7 @@ export default function DashboardsAdminPage() {
 
       {/* Dialog de Atribuição por Usuário */}
       <Dialog open={!!assignDashboard} onOpenChange={(o) => { if (!o) setAssignDashboard(null) }}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Atribuir a usuários</DialogTitle>
             <DialogDescription>
