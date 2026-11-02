@@ -32,6 +32,7 @@ import {
   Handshake,
   Hotel,
   TicketPercent,
+  Radar,
 } from 'lucide-react'
 
 type Icone = ComponentType<{ className?: string }>
@@ -87,6 +88,8 @@ export const GRUPOS_ADMIN: GrupoNav[] = [
     items: [
       { title: 'Email Tracking',    href: '/dashboard/admin/email-tracking', icon: Mail,          roles: SUPER },
       { title: 'Afinidade',         href: '/dashboard/admin/afinidade',      icon: Handshake,     roles: SUPER },
+      // Prospecção a partir de reclamações públicas sobre falta de inglês.
+      { title: 'Agente Comercial',  href: '/dashboard/admin/agente-comercial', icon: Radar,       roles: SUPER },
       // Cadastros da landing /piloto-ingles-goias.
       { title: 'Capacitação Goiás', href: '/dashboard/admin/piloto-goias',   icon: Hotel,         roles: SUPER },
       { title: 'Cupons',            href: '/dashboard/admin/cupons',         icon: TicketPercent, roles: SUPER },
