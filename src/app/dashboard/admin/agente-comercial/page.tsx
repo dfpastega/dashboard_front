@@ -60,6 +60,11 @@ export default function AgenteComercialPage() {
   const [erro, setErro] = useState<string | null>(null)
   const [executando, setExecutando] = useState(false)
 
+  // Busca avulsa
+  const [dialogBusca, setDialogBusca] = useState(false)
+  const [instrucoes, setInstrucoes] = useState('')
+  const [aguardando, setAguardando] = useState(false)
+
   // Revisão
   const [aberto, setAberto] = useState<Achado | null>(null)
   const [assunto, setAssunto] = useState('')
@@ -111,16 +116,53 @@ export default function AgenteComercialPage() {
     setMotivo('')
   }
 
-  async function executarAgora() {
+  /**
+   * Dispara a busca avulsa e acompanha até terminar.
+   *
+   * O backend responde 202 e segue trabalhando, então a tela não tem como saber o
+   * resultado pela resposta. Ela observa o resumo até aparecer uma execução nova já
+   * encerrada — e desiste depois de ~100s em vez de ficar observando para sempre,
+   * porque uma execução pode ficar presa se o dyno reiniciar no meio.
+   */
+  async function buscarAgora() {
     setExecutando(true)
+    const idAnterior = resumo?.ultimaExecucao?.id ?? null
+
     try {
-      const { data } = await api.post<{ message: string }>(`${BASE}/executar`)
+      const { data } = await api.post<{ message: string }>(`${BASE}/busca-avulsa`, {
+        ...(instrucoes.trim() ? { instrucoes: instrucoes.trim() } : {}),
+      })
+      setDialogBusca(false)
       toast.success(data.message)
-      carregar()
+      setAguardando(true)
+
+      for (let i = 0; i < 25; i++) {
+        await new Promise((r) => setTimeout(r, 4000))
+        const { data: res } = await api.get<Resumo>(`${BASE}/resumo`)
+        const u = res.ultimaExecucao
+        if (u && u.id !== idAnterior && u.status !== 'running') {
+          setInstrucoes('')
+          await carregar()
+          if (u.findingsNew > 0) {
+            toast.success(
+              `Busca concluída: ${u.findingsNew} reclamação(ões) nova(s) para revisar.`,
+            )
+          } else {
+            toast.info(
+              u.findingsUnverified > 0
+                ? `Nada novo. ${u.findingsUnverified} achado(s) não puderam ser confirmados na fonte — veja em Execuções.`
+                : 'Busca concluída, mas nada novo foi encontrado.',
+            )
+          }
+          return
+        }
+      }
+      toast.info('A busca ainda está rodando. Acompanhe em Execuções.')
     } catch (err) {
-      toast.error(mensagemErro(err, 'Não foi possível solicitar a execução.'))
+      toast.error(mensagemErro(err, 'Não foi possível iniciar a busca.'))
     } finally {
       setExecutando(false)
+      setAguardando(false)
     }
   }
 
@@ -176,10 +218,12 @@ export default function AgenteComercialPage() {
             Reclamações públicas sobre equipe que não fala inglês, conferidas na fonte
           </p>
         </div>
-        <Button onClick={executarAgora} disabled={executando || !config?.isActive}>
+        {/* Sem `disabled` pelo estado do agente: a busca avulsa existe justamente
+            para rodar com ele desligado e fora da janela. */}
+        <Button onClick={() => setDialogBusca(true)} disabled={executando}>
           {executando
-            ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Solicitando…</>
-            : <><Play className="h-4 w-4 mr-2" />Executar agora</>}
+            ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />{aguardando ? 'Buscando…' : 'Iniciando…'}</>
+            : <><Play className="h-4 w-4 mr-2" />Buscar agora</>}
         </Button>
       </div>
 
@@ -188,7 +232,9 @@ export default function AgenteComercialPage() {
       {config && !config.isActive && (
         <div className="flex flex-wrap items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
           <AlertCircle className="h-4 w-4 shrink-0" />
-          <span>O agente está desligado e não vai buscar nada.</span>
+          <span>
+            O agente está desligado: não vai buscar sozinho. &ldquo;Buscar agora&rdquo; continua funcionando.
+          </span>
           <Link href={`${PAGINA}/configuracao`} className="font-medium underline">
             Ligar na configuração
           </Link>
@@ -394,6 +440,55 @@ export default function AgenteComercialPage() {
           ) : null}
         </CardContent>
       </Card>
+
+      {/* ── Dialog: busca avulsa ───────────────────────────────────────────── */}
+      <Dialog open={dialogBusca} onOpenChange={(ab) => !ab && setDialogBusca(false)}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Buscar agora</DialogTitle>
+            <DialogDescription>
+              Roda uma verificação única na hora, mesmo com o agente desligado e fora do
+              horário programado. Não altera o próximo ciclo.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="instrucoes">Restringir esta busca a (opcional)</Label>
+              <Textarea
+                id="instrucoes"
+                value={instrucoes}
+                onChange={(e) => setInstrucoes(e.target.value)}
+                rows={3}
+                maxLength={500}
+                placeholder="ex.: somente hotéis na cidade do Rio de Janeiro"
+              />
+              <p className="text-xs text-muted-foreground">
+                {instrucoes.trim()
+                  ? 'O agente vai fazer uma busca só, limitada ao que você escreveu.'
+                  : 'Em branco, o agente usa as buscas de descoberta e os estabelecimentos monitorados (até três por vez).'}
+              </p>
+            </div>
+
+            <div className="rounded-md bg-muted/40 px-4 py-3 text-xs text-muted-foreground">
+              Leva cerca de um minuto. A tela avisa quando terminar — e o que for
+              encontrado entra na fila para revisão, nunca enviado direto.
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogBusca(false)} disabled={executando}>
+              Cancelar
+            </Button>
+            <Button onClick={buscarAgora} disabled={executando}>
+              {executando
+                ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                : <Play className="h-4 w-4 mr-2" />}
+              Buscar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ── Dialog: revisão do achado ──────────────────────────────────────── */}
       <Dialog open={!!aberto} onOpenChange={(ab) => !ab && setAberto(null)}>

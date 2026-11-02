@@ -29,7 +29,7 @@ import {
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
-import { AlertCircle, Loader2, Plus, Save, Trash2 } from 'lucide-react'
+import { AlertCircle, Loader2, Play, Plus, Save, Trash2 } from 'lucide-react'
 import { api } from '@/lib/api'
 import {
   BASE, FREQUENCIAS, formatarData, formatarDataCurta, mensagemErro,
@@ -119,6 +119,20 @@ export default function ConfiguracaoPage() {
       toast.success('Configuração salva.')
     } catch (err) {
       toast.error(mensagemErro(err, 'Não foi possível salvar.'))
+    } finally {
+      setSalvando(false)
+    }
+  }
+
+  /** Pede ao agendador o ciclo inteiro (todas as buscas ativas + monitorados). */
+  async function rodarCicloCompleto() {
+    setSalvando(true)
+    try {
+      const { data } = await api.post<{ message: string }>(`${BASE}/executar`)
+      toast.success(data.message)
+      carregar()
+    } catch (err) {
+      toast.error(mensagemErro(err, 'Não foi possível solicitar o ciclo.'))
     } finally {
       setSalvando(false)
     }
@@ -332,7 +346,23 @@ export default function ConfiguracaoPage() {
                 de grandeza: o valor real vai no log de execuções e, de verdade, na fatura da OpenAI.
               </div>
 
-              <div className="flex justify-end">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                {/* Complementa o "Buscar agora" da fila: lá roda na hora, mas no máximo
+                    três buscas; aqui roda o ciclo inteiro, no agendador, onde um
+                    trabalho longo não concorre com as requisições do painel. */}
+                <Button
+                  variant="outline"
+                  onClick={rodarCicloCompleto}
+                  disabled={salvando || !config?.isActive}
+                  title={
+                    config?.isActive
+                      ? 'Roda todas as buscas configuradas na próxima passada do agendador'
+                      : 'Ligue o agente para usar o ciclo completo'
+                  }
+                >
+                  {salvando ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Play className="h-4 w-4 mr-2" />}
+                  Rodar o ciclo completo
+                </Button>
                 <Button onClick={salvarConfig} disabled={salvando}>
                   {salvando ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
                   Salvar configuração
