@@ -177,6 +177,11 @@ export default function PromptsPage() {
             onRestaurar={() => salvar('email', null)}
           />
 
+          {/* O card de pessoas chegou depois dos outros dois: num servidor que ainda
+              nao subiu, `peoplePromptPadrao` vem undefined e o card renderizaria vazio.
+              A guarda e por campo, e nao a do topo, porque `searchPromptPadrao` JA
+              existe no servidor antigo — aquela guarda nao pegaria este caso. */}
+          {typeof config.peoplePromptPadrao === 'string' && (
           <CardPrompt
             id="pessoas"
             titulo="Prompt das pessoas-chave"
@@ -194,6 +199,7 @@ export default function PromptsPage() {
             onSalvar={() => salvar('pessoas', textoPessoas)}
             onRestaurar={() => salvar('pessoas', null)}
           />
+          )}
           </>
           )}
 
