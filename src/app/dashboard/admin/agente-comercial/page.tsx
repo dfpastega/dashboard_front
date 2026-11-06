@@ -31,11 +31,13 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
 import {
-  AlertCircle, Check, ChevronLeft, ChevronRight, ExternalLink, Loader2, Play, RefreshCw, Search, X,
+  AlertCircle, Check, ChevronLeft, ChevronRight, ExternalLink, Loader2, Play, RefreshCw,
+  Search, ShieldAlert, ShieldCheck, X,
 } from 'lucide-react'
 import { api } from '@/lib/api'
 import {
-  BASE, CLASSE_STATUS, PAGINA, ROTULO_STATUS, formatarData, formatarDataCurta, formatarUsd,
+  AJUDA_VERIFICACAO, BASE, CLASSE_STATUS, CLASSE_VERIFICACAO, PAGINA, ROTULO_STATUS,
+  ROTULO_VERIFICACAO, formatarData, formatarDataCurta, formatarUsd,
   mensagemErro, type Achado, type Config, type Paginado, type Resumo,
 } from './_lib'
 import { NavAgente } from './_nav'
@@ -47,8 +49,20 @@ const FILTROS = [
   { valor: 'todos', rotulo: 'Todos' },
 ]
 
+/**
+ * Eixo separado da situação: aqui se filtra por CONFERÊNCIA da citação, não pelo
+ * estágio comercial. "Não conferidos" é a fila de quem precisa abrir a fonte.
+ */
+const FILTROS_VERIFICACAO = [
+  { valor: 'todos', rotulo: 'Todas' },
+  { valor: 'unverified', rotulo: 'Não conferidos' },
+  { valor: 'verified', rotulo: 'Conferidos pelo agente' },
+  { valor: 'confirmed', rotulo: 'Confirmados por pessoa' },
+]
+
 export default function AgenteComercialPage() {
   const [filtro, setFiltro] = useState('pending')
+  const [filtroVerificacao, setFiltroVerificacao] = useState('todos')
   const [busca, setBusca] = useState('')
   const [buscaAplicada, setBuscaAplicada] = useState('')
   const [pagina, setPagina] = useState(1)
@@ -89,6 +103,7 @@ export default function AgenteComercialPage() {
           params: {
             pagina,
             ...(filtro !== 'todos' ? { status: filtro } : {}),
+            ...(filtroVerificacao !== 'todos' ? { verificacao: filtroVerificacao } : {}),
             ...(buscaAplicada ? { busca: buscaAplicada } : {}),
           },
         }),
@@ -103,7 +118,7 @@ export default function AgenteComercialPage() {
     } finally {
       setLoading(false)
     }
-  }, [pagina, filtro, buscaAplicada])
+  }, [pagina, filtro, filtroVerificacao, buscaAplicada])
 
   useEffect(() => {
     carregar()
@@ -188,6 +203,25 @@ export default function AgenteComercialPage() {
     }
   }
 
+  /**
+   * Confirmação humana: quem clica está dizendo que abriu o link e viu a reclamação.
+   * É o que destrava a aprovação de um achado que o agente não conseguiu conferir.
+   */
+  async function confirmarNaFonte() {
+    if (!aberto) return
+    setSalvando(true)
+    try {
+      const { data } = await api.post<{ achado: Achado }>(`${BASE}/achados/${aberto.id}/confirmar`)
+      setAberto(data.achado)
+      toast.success('Confirmado. Agora dá para aprovar.')
+      carregar()
+    } catch (err) {
+      toast.error(mensagemErro(err, 'Não foi possível confirmar.'))
+    } finally {
+      setSalvando(false)
+    }
+  }
+
   async function recusar() {
     if (!aberto) return
     if (motivo.trim().length < 3) {
@@ -255,6 +289,19 @@ export default function AgenteComercialPage() {
             <CardDescription>Aguardando revisão</CardDescription>
             <CardTitle className="text-3xl">{resumo ? resumo.achados.pendentes : '—'}</CardTitle>
           </CardHeader>
+          <CardContent className="pt-0 text-xs text-muted-foreground">
+            {resumo && resumo.achados.naoConfirmados > 0 ? (
+              <button
+                type="button"
+                onClick={() => { setFiltroVerificacao('unverified'); setPagina(1) }}
+                className="text-amber-600 underline underline-offset-2"
+              >
+                {resumo.achados.naoConfirmados} aguardando conferência na fonte
+              </button>
+            ) : (
+              'todos conferidos'
+            )}
+          </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
@@ -319,6 +366,23 @@ export default function AgenteComercialPage() {
                   </SelectTrigger>
                   <SelectContent>
                     {FILTROS.map((f) => (
+                      <SelectItem key={f.valor} value={f.valor}>{f.rotulo}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="w-full space-y-2 sm:w-56">
+                <Label htmlFor="filtro-verificacao">Conferência</Label>
+                <Select
+                  value={filtroVerificacao}
+                  onValueChange={(v) => { setFiltroVerificacao(v); setPagina(1) }}
+                >
+                  <SelectTrigger id="filtro-verificacao" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {FILTROS_VERIFICACAO.map((f) => (
                       <SelectItem key={f.valor} value={f.valor}>{f.rotulo}</SelectItem>
                     ))}
                   </SelectContent>
@@ -398,9 +462,23 @@ export default function AgenteComercialPage() {
                           {formatarDataCurta(a.createdAt)}
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline" className={CLASSE_STATUS[a.status]}>
-                            {ROTULO_STATUS[a.status]}
-                          </Badge>
+                          <div className="flex flex-wrap gap-1">
+                            <Badge variant="outline" className={CLASSE_STATUS[a.status]}>
+                              {ROTULO_STATUS[a.status]}
+                            </Badge>
+                            {/* O selo de conferência só aparece quando diz algo: o caso
+                                normal é o agente ter conferido, e repeti-lo em toda
+                                linha esconderia justamente as que precisam de atenção. */}
+                            {a.verificationStatus !== 'verified' && (
+                              <Badge
+                                variant="outline"
+                                className={CLASSE_VERIFICACAO[a.verificationStatus]}
+                                title={AJUDA_VERIFICACAO[a.verificationStatus]}
+                              >
+                                {ROTULO_VERIFICACAO[a.verificationStatus]}
+                              </Badge>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell className="text-right">
                           <Button variant="ghost" size="sm" onClick={() => abrirRevisao(a)}>
@@ -523,10 +601,56 @@ export default function AgenteComercialPage() {
                     {aberto.reviewDate && <span>avaliação de {formatarDataCurta(aberto.reviewDate)}</span>}
                     {aberto.excerptLanguage && <span>idioma: {aberto.excerptLanguage}</span>}
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    O backend conferiu que este trecho aparece na página. Confira na fonte antes de
-                    aprovar — a verificação reduz o risco de citação errada, não o elimina.
-                  </p>
+                  {/* O que a conferência diz, e o que falta fazer. É o bloco mais
+                      importante do diálogo quando o agente não conseguiu ler a página:
+                      o achado pode ser legítimo e a decisão passa a ser humana. */}
+                  {aberto.verificationStatus === 'verified' && (
+                    <p className="text-xs text-muted-foreground">
+                      O agente abriu a página e achou este trecho, palavra por palavra. Ainda
+                      assim, confira na fonte antes de aprovar — a conferência reduz o risco de
+                      citação errada, não o elimina.
+                    </p>
+                  )}
+
+                  {aberto.verificationStatus === 'confirmed' && (
+                    <p className="text-xs text-sky-700 dark:text-sky-300">
+                      Alguém do time abriu a fonte e confirmou esta reclamação
+                      {aberto.verifiedAt ? ` em ${formatarData(aberto.verifiedAt)}` : ''}.
+                    </p>
+                  )}
+
+                  {aberto.verificationStatus === 'unverified' && (
+                    <div className="space-y-3 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+                      <div className="flex gap-2">
+                        <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
+                        <div className="space-y-1">
+                          <p className="font-medium">O agente não conseguiu conferir este trecho.</p>
+                          <p className="text-xs">
+                            {aberto.verificationReason
+                              ? `Motivo técnico: ${aberto.verificationReason}. `
+                              : ''}
+                            Em geral é o site bloqueando leitura automática — a reclamação
+                            costuma estar lá e visível no navegador. Abra a fonte, procure o
+                            trecho acima e confirme só se encontrar.
+                          </p>
+                        </div>
+                      </div>
+                      {aberto.status === 'pending' && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={confirmarNaFonte}
+                          disabled={salvando}
+                          className="bg-background"
+                        >
+                          {salvando
+                            ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            : <ShieldCheck className="h-4 w-4 mr-2" />}
+                          Abri a fonte e a reclamação está lá
+                        </Button>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Contato: na F1 o envio não acontece aqui, mas o time precisa ver o que
@@ -630,7 +754,15 @@ export default function AgenteComercialPage() {
                     {salvando ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <X className="h-4 w-4 mr-2" />}
                     Recusar
                   </Button>
-                  <Button onClick={aprovar} disabled={salvando}>
+                  <Button
+                    onClick={aprovar}
+                    disabled={salvando || aberto.verificationStatus === 'unverified'}
+                    title={
+                      aberto.verificationStatus === 'unverified'
+                        ? 'Confirme na fonte antes de aprovar'
+                        : undefined
+                    }
+                  >
                     {salvando ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
                     Aprovar
                   </Button>

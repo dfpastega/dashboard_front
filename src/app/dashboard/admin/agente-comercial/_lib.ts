@@ -15,6 +15,12 @@ export interface Paginado<T> {
 export type StatusAchado = 'pending' | 'approved' | 'rejected' | 'sent' | 'send_failed'
 export type StatusMonitoramento = 'monitored' | 'discovered' | 'ignored'
 
+/**
+ * Eixo separado do status: este diz se a CITAÇÃO foi conferida, o status diz onde o
+ * achado está no fluxo comercial.
+ */
+export type StatusVerificacao = 'verified' | 'unverified' | 'confirmed'
+
 export interface Achado {
   id: string
   sourceSite: string
@@ -23,6 +29,10 @@ export interface Achado {
   excerptLanguage: string | null
   reviewDate: string | null
   status: StatusAchado
+  verificationStatus: StatusVerificacao
+  /** Por que a conferência automática não passou: HTTP 403, trecho não encontrado… */
+  verificationReason: string | null
+  verifiedAt: string | null
   rejectionReason: string | null
   reviewedAt: string | null
   createdAt: string
@@ -168,6 +178,8 @@ export interface ExecucaoDetalhada extends Execucao {
 
 export interface Resumo {
   achados: {
+    /** Pendentes que o agente não conseguiu conferir e esperam alguém abrir a fonte. */
+    naoConfirmados: number
     pendentes: number
     aprovados: number
     recusados: number
@@ -241,6 +253,30 @@ export const CLASSE_STATUS: Record<StatusAchado, string> = {
   rejected: 'bg-muted text-muted-foreground',
   sent: 'bg-emerald-500/15 text-emerald-600',
   send_failed: 'bg-red-500/15 text-red-600',
+}
+
+export const ROTULO_VERIFICACAO: Record<StatusVerificacao, string> = {
+  verified: 'conferido',
+  unverified: 'não conferido',
+  confirmed: 'confirmado por pessoa',
+}
+
+export const CLASSE_VERIFICACAO: Record<StatusVerificacao, string> = {
+  verified: 'bg-emerald-500/15 text-emerald-600',
+  unverified: 'bg-amber-500/15 text-amber-600',
+  confirmed: 'bg-sky-500/15 text-sky-600',
+}
+
+/**
+ * O que cada estado significa para quem revisa — não o detalhe técnico, que fica em
+ * `verificationReason`, mas o que a pessoa precisa fazer.
+ */
+export const AJUDA_VERIFICACAO: Record<StatusVerificacao, string> = {
+  verified: 'O agente abriu a página e achou este trecho, palavra por palavra.',
+  unverified:
+    'O agente não conseguiu ler a página — em geral o site bloqueia leitura automática. ' +
+    'A reclamação pode existir: abra a fonte e confira antes de aprovar.',
+  confirmed: 'Alguém do time abriu a fonte e confirmou que a reclamação está lá.',
 }
 
 export const ROTULO_MONITORAMENTO: Record<StatusMonitoramento, string> = {

@@ -3,10 +3,12 @@
 /**
  * Agente Comercial — log de execuções.
  *
- * A coluna que vale olhar é "não confirmados": são os achados que o modelo devolveu mas
- * cuja citação não foi encontrada na página de origem. Uma taxa alta não é defeito do
- * log — é sinal de que os prompts ou as fontes precisam de ajuste, e o detalhe de cada
- * descarte (com o motivo) está no dialog.
+ * A coluna que vale olhar é "não confirmados": achados cuja citação o agente não
+ * conseguiu conferir na página de origem. Eles NÃO são descartados — ficam na fila de
+ * revisão marcados, e só podem ser aprovados depois que alguém abrir a fonte e
+ * confirmar. Uma taxa alta não é defeito do log: diz que as fontes daquela busca
+ * bloqueiam leitura automática (TripAdvisor é o caso clássico) e que mexer no prompt
+ * para procurar em outros sites rende mais. O motivo de cada uma está no dialog.
  *
  * O custo é estimativa calculada com preços fixos no código do backend; a fatura da
  * OpenAI é a fonte real.
@@ -76,7 +78,7 @@ export default function ExecucoesPage() {
       <div>
         <h1 className="text-2xl font-bold">Execuções</h1>
         <p className="text-muted-foreground text-sm">
-          Cada ciclo do agente, com o que achou, o que descartou e quanto custou
+          Cada ciclo do agente, com o que achou, o que não conseguiu conferir e quanto custou
         </p>
       </div>
 
@@ -257,6 +259,9 @@ export default function ExecucoesPage() {
                         )}
                         {(b.descartes ?? []).length > 0 && (
                           <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
+                            <li className="text-muted-foreground">
+                              Não conferidos nesta busca (continuam na fila, marcados):
+                            </li>
                             {b.descartes!.map((d, j) => (
                               <li key={j} className="break-all">
                                 <span className="text-amber-600">{d.motivo}</span> — {d.url}
