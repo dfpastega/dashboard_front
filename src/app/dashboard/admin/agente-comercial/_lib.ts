@@ -62,6 +62,13 @@ export interface Estabelecimento {
   totalAchados: number
 }
 
+/** Uma variável `{{nome}}` que o prompt pode usar, como o backend descreve. */
+export interface VariavelPrompt {
+  nome: string
+  obrigatoria: boolean
+  descricao: string
+}
+
 export interface Config {
   id: string
   isActive: boolean
@@ -75,6 +82,24 @@ export interface Config {
   nextRunAt: string | null
   /** Só diz se a chave existe no servidor — nunca o valor. */
   openaiConfigurada: boolean
+
+  // ── Prompts ──────────────────────────────────────────────────────────────
+  // O backend manda o prompt já resolvido (personalizado ou padrão), o padrão e o
+  // bloco fixo. O texto não é duplicado aqui de propósito: duas cópias divergiriam
+  // na primeira alteração, e a tela passaria a mostrar um prompt que não é o que roda.
+  /** O prompt em uso. */
+  searchPrompt: string
+  emailPrompt: string
+  /** false quando o que está em uso é o padrão do código. */
+  searchPromptPersonalizado: boolean
+  emailPromptPersonalizado: boolean
+  searchPromptPadrao: string
+  emailPromptPadrao: string
+  /** O que o código cola depois do prompt e a edição não alcança. */
+  searchPromptFixo: string
+  emailPromptFixo: string
+  variaveisBusca: VariavelPrompt[]
+  variaveisEmail: VariavelPrompt[]
 }
 
 export interface Busca {
@@ -217,8 +242,23 @@ export const CLASSE_EXECUCAO: Record<Execucao['status'], string> = {
 
 /** Mensagem de erro do backend, com fallback. */
 export function mensagemErro(err: unknown, padrao: string): string {
-  const resposta = (err as { response?: { status?: number; data?: { error?: string } } })?.response
+  const resposta = (
+    err as {
+      response?: {
+        status?: number
+        data?: { error?: string; details?: Array<{ message?: string }> }
+      }
+    }
+  )?.response
+
   if (resposta?.status === 403) return 'Esta tela é restrita a super administradores.'
+
+  // Num 400 o backend responde `{ error: "Dados inválidos", details: [...] }`. Sem ler
+  // `details`, a tela mostraria só "Dados inválidos" — inútil para quem acabou de
+  // escrever um prompt de quarenta linhas e precisa saber qual linha está errada.
+  const detalhes = resposta?.data?.details?.map((d) => d.message).filter(Boolean)
+  if (detalhes?.length) return detalhes.slice(0, 2).join(' ')
+
   return resposta?.data?.error || padrao
 }
 

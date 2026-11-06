@@ -12,6 +12,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
+import Link from 'next/link'
 import { toast } from 'sonner'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -32,7 +33,7 @@ import {
 import { AlertCircle, Loader2, Play, Plus, Save, Trash2 } from 'lucide-react'
 import { api } from '@/lib/api'
 import {
-  BASE, FREQUENCIAS, formatarData, formatarDataCurta, mensagemErro,
+  BASE, FREQUENCIAS, PAGINA, formatarData, formatarDataCurta, mensagemErro,
   type Busca, type Config,
 } from '../_lib'
 import { NavAgente } from '../_nav'
@@ -442,6 +443,23 @@ export default function ConfiguracaoPage() {
                   </Table>
                 </div>
               )}
+            </CardContent>
+          </Card>
+
+          {/* ── Prompts ───────────────────────────────────────────────────── */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Prompts</CardTitle>
+              <CardDescription>
+                O texto que o agente manda para a IA na busca e na redação do e-mail fica
+                na aba <strong>Prompts</strong>, onde pode ser lido e reescrito — tom de
+                voz, região, sites consultados, tamanho do texto.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button variant="outline" asChild>
+                <Link href={`${PAGINA}/prompts`}>Abrir os prompts</Link>
+              </Button>
             </CardContent>
           </Card>
 

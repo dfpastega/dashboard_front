@@ -18,6 +18,7 @@ const ABAS = [
   { href: `${PAGINA}/estabelecimentos`, rotulo: 'Estabelecimentos' },
   { href: `${PAGINA}/execucoes`, rotulo: 'Execuções' },
   { href: `${PAGINA}/configuracao`, rotulo: 'Configuração' },
+  { href: `${PAGINA}/prompts`, rotulo: 'Prompts' },
 ]
 
 export function NavAgente() {
