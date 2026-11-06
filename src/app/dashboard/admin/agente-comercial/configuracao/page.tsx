@@ -30,7 +30,7 @@ import {
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
-import { AlertCircle, Loader2, Play, Plus, Save, Trash2 } from 'lucide-react'
+import { AlertCircle, Loader2, Mail, Play, Plus, Save, Trash2, X } from 'lucide-react'
 import { api } from '@/lib/api'
 import {
   BASE, FREQUENCIAS, PAGINA, formatarData, formatarDataCurta, mensagemErro,
@@ -55,6 +55,11 @@ export default function ConfiguracaoPage() {
   const [cooldown, setCooldown] = useState('90')
   const [modelo, setModelo] = useState('gpt-5.5')
 
+  // Avisos por e-mail. A lista é editada inteira e mandada inteira no salvar.
+  const [avisoLigado, setAvisoLigado] = useState(true)
+  const [destinatarios, setDestinatarios] = useState<string[]>([])
+  const [novoEmail, setNovoEmail] = useState('')
+
   // Dialog de busca
   const [editandoBusca, setEditandoBusca] = useState<Busca | null>(null)
   const [criandoBusca, setCriandoBusca] = useState(false)
@@ -77,6 +82,8 @@ export default function ConfiguracaoPage() {
       setMaxAchados(String(cfg.data.maxFindingsPerCycle))
       setCooldown(String(cfg.data.emailCooldownDays))
       setModelo(cfg.data.openaiModel)
+      setAvisoLigado(cfg.data.digestEnabled ?? true)
+      setDestinatarios(cfg.data.digestRecipients ?? [])
     } catch (err) {
       setErro(mensagemErro(err, 'Não foi possível carregar a configuração.'))
     } finally {
@@ -115,6 +122,8 @@ export default function ConfiguracaoPage() {
         maxFindingsPerCycle: nAchados,
         emailCooldownDays: nCooldown,
         openaiModel: modelo,
+        digestEnabled: avisoLigado,
+        digestRecipients: destinatarios,
       })
       setConfig(data.config)
       toast.success('Configuração salva.')
@@ -206,6 +215,31 @@ export default function ConfiguracaoPage() {
     } finally {
       setSalvando(false)
     }
+  }
+
+  /**
+   * Validação só para não deixar entrar lixo óbvio na lista antes de salvar. Quem
+   * decide de verdade é o backend — esta regex existe para dar resposta imediata,
+   * não para ser a autoridade sobre o que é um e-mail.
+   */
+  function adicionarDestinatario() {
+    const email = novoEmail.trim().toLowerCase()
+    if (!email) return
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast.error('E-mail inválido.')
+      return
+    }
+    if (destinatarios.includes(email)) {
+      toast.error('Esse endereço já está na lista.')
+      setNovoEmail('')
+      return
+    }
+    if (destinatarios.length >= 20) {
+      toast.error('No máximo 20 destinatários.')
+      return
+    }
+    setDestinatarios([...destinatarios, email])
+    setNovoEmail('')
   }
 
   const buscasAtivas = buscas.filter((b) => b.isActive).length
@@ -364,6 +398,114 @@ export default function ConfiguracaoPage() {
                   {salvando ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Play className="h-4 w-4 mr-2" />}
                   Rodar o ciclo completo
                 </Button>
+                <Button onClick={salvarConfig} disabled={salvando}>
+                  {salvando ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                  Salvar configuração
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* ── Avisos por e-mail ─────────────────────────────────────────── */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Aviso de cada rodada</CardTitle>
+              <CardDescription>
+                Quando uma execução encontra reclamação nova, o agente avisa por e-mail
+                para a fila ser revisada. Quem envia continua sendo o remetente do
+                sistema; aqui se decide quem recebe.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex flex-wrap items-center justify-between gap-4 rounded-md border px-4 py-3">
+                <div className="space-y-0.5">
+                  <Label htmlFor="aviso" className="text-base">Avisar por e-mail</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Desligado, nenhuma rodada manda aviso — os achados continuam
+                    aparecendo no painel.
+                  </p>
+                </div>
+                <Switch id="aviso" checked={avisoLigado} onCheckedChange={setAvisoLigado} />
+              </div>
+
+              <div className="space-y-3">
+                <Label htmlFor="novo-destinatario">Quem recebe</Label>
+
+                {destinatarios.length > 0 && (
+                  <ul className="flex flex-wrap gap-2">
+                    {destinatarios.map((email) => (
+                      <li
+                        key={email}
+                        className="flex items-center gap-1.5 rounded-full border bg-muted/50 py-1 pl-3 pr-1 text-sm"
+                      >
+                        <span className="break-all">{email}</span>
+                        <button
+                          type="button"
+                          onClick={() => setDestinatarios(destinatarios.filter((e) => e !== email))}
+                          className="rounded-full p-1 text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+                          aria-label={`Remover ${email}`}
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                <div className="flex flex-wrap gap-2">
+                  <Input
+                    id="novo-destinatario"
+                    type="email"
+                    value={novoEmail}
+                    onChange={(e) => setNovoEmail(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') { e.preventDefault(); adicionarDestinatario() }
+                    }}
+                    placeholder="pessoa@stormeducation.com.br"
+                    className="sm:max-w-sm"
+                    disabled={!avisoLigado}
+                  />
+                  <Button
+                    variant="outline"
+                    onClick={adicionarDestinatario}
+                    disabled={!avisoLigado || !novoEmail.trim()}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />Adicionar
+                  </Button>
+                </div>
+
+                {/* Quem recebe hoje vem resolvido do servidor — é a mesma função que o
+                    job usa no envio, então a tela não pode discordar do e-mail. */}
+                <div className="flex gap-2 rounded-md bg-muted/40 px-4 py-3 text-xs text-muted-foreground">
+                  <Mail className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  <div>
+                    {config?.digestOrigem === 'desligado' ? (
+                      <>O aviso está desligado: nenhuma rodada manda e-mail.</>
+                    ) : config?.digestOrigem === 'EMAIL_RECIPIENTS' ? (
+                      <>
+                        Sem ninguém na lista, o aviso vai para os administradores
+                        configurados no servidor:{' '}
+                        <strong className="break-all">
+                          {config.digestDestinatarios.join(', ') || 'ninguém — nem no servidor há endereço configurado'}
+                        </strong>. Adicione endereços acima para o aviso ir só para eles.
+                      </>
+                    ) : (
+                      <>
+                        Hoje o aviso vai para{' '}
+                        <strong className="break-all">
+                          {config?.digestDestinatarios.join(', ')}
+                        </strong>. Esvaziar a lista devolve o aviso aos administradores
+                        configurados no servidor.
+                      </>
+                    )}
+                    <br />
+                    Isto reflete o que está <em>salvo</em>; alterações acima valem depois
+                    de salvar a configuração.
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end">
                 <Button onClick={salvarConfig} disabled={salvando}>
                   {salvando ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
                   Salvar configuração

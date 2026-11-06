@@ -83,6 +83,19 @@ export interface Config {
   /** Só diz se a chave existe no servidor — nunca o valor. */
   openaiConfigurada: boolean
 
+  // ── Aviso de cada rodada ─────────────────────────────────────────────────
+  /** Se false, nenhuma rodada manda aviso. */
+  digestEnabled: boolean
+  /** A lista configurada no painel; vazia significa "usar o fallback". */
+  digestRecipients: string[]
+  /**
+   * Para quem o aviso vai DE FATO hoje, já resolvida a precedência, e de onde a lista
+   * saiu. Vem pronto do servidor: é a mesma função que o job usa na hora de enviar,
+   * então a tela e o e-mail não têm como discordar.
+   */
+  digestDestinatarios: string[]
+  digestOrigem: 'painel' | 'EMAIL_RECIPIENTS' | 'desligado'
+
   // ── Prompts ──────────────────────────────────────────────────────────────
   // O backend manda o prompt já resolvido (personalizado ou padrão), o padrão e o
   // bloco fixo. O texto não é duplicado aqui de propósito: duas cópias divergiriam
