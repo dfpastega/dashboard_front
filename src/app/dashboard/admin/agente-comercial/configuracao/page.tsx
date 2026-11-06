@@ -33,8 +33,9 @@ import {
 import { AlertCircle, Loader2, Mail, Play, Plus, Save, Trash2, X } from 'lucide-react'
 import { api } from '@/lib/api'
 import {
-  BASE, FREQUENCIAS, PAGINA, formatarData, formatarDataCurta, mensagemErro,
-  type Busca, type Config,
+  BASE, DIAS_SEMANA, FREQUENCIAS, HORAS, MODOS_DIGEST, PAGINA,
+  formatarData, formatarDataCurta, mensagemErro,
+  type Busca, type Config, type ModoDigest,
 } from '../_lib'
 import { NavAgente } from '../_nav'
 
@@ -57,6 +58,9 @@ export default function ConfiguracaoPage() {
 
   // Avisos por e-mail. A lista é editada inteira e mandada inteira no salvar.
   const [avisoLigado, setAvisoLigado] = useState(true)
+  const [modoAviso, setModoAviso] = useState<ModoDigest>('cada_execucao')
+  const [diaAviso, setDiaAviso] = useState('1')
+  const [horaAviso, setHoraAviso] = useState('9')
   const [destinatarios, setDestinatarios] = useState<string[]>([])
   const [novoEmail, setNovoEmail] = useState('')
 
@@ -83,6 +87,9 @@ export default function ConfiguracaoPage() {
       setCooldown(String(cfg.data.emailCooldownDays))
       setModelo(cfg.data.openaiModel)
       setAvisoLigado(cfg.data.digestEnabled ?? true)
+      setModoAviso(cfg.data.digestMode ?? 'cada_execucao')
+      setDiaAviso(String(cfg.data.digestWeekday ?? 1))
+      setHoraAviso(String(cfg.data.digestHour ?? 9))
       setDestinatarios(cfg.data.digestRecipients ?? [])
     } catch (err) {
       setErro(mensagemErro(err, 'Não foi possível carregar a configuração.'))
@@ -124,6 +131,9 @@ export default function ConfiguracaoPage() {
         openaiModel: modelo,
         digestEnabled: avisoLigado,
         digestRecipients: destinatarios,
+        digestMode: modoAviso,
+        digestWeekday: Number(diaAviso),
+        digestHour: Number(horaAviso),
       })
       setConfig(data.config)
       toast.success('Configuração salva.')
@@ -409,11 +419,11 @@ export default function ConfiguracaoPage() {
           {/* ── Avisos por e-mail ─────────────────────────────────────────── */}
           <Card>
             <CardHeader>
-              <CardTitle>Aviso de cada rodada</CardTitle>
+              <CardTitle>Aviso por e-mail</CardTitle>
               <CardDescription>
-                Quando uma execução encontra reclamação nova, o agente avisa por e-mail
-                para a fila ser revisada. Quem envia continua sendo o remetente do
-                sistema; aqui se decide quem recebe.
+                Quando o agente encontra reclamação nova, avisa por e-mail para a fila
+                ser revisada. Quem envia continua sendo o remetente do sistema; aqui se
+                decide quem recebe e com que frequência.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -426,6 +436,79 @@ export default function ConfiguracaoPage() {
                   </p>
                 </div>
                 <Switch id="aviso" checked={avisoLigado} onCheckedChange={setAvisoLigado} />
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="modo-aviso">Quando avisar</Label>
+                  <Select
+                    value={modoAviso}
+                    onValueChange={(v) => setModoAviso(v as ModoDigest)}
+                    disabled={!avisoLigado}
+                  >
+                    <SelectTrigger id="modo-aviso" className="w-full sm:max-w-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {MODOS_DIGEST.map((m) => (
+                        <SelectItem key={m.valor} value={m.valor}>{m.rotulo}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    {MODOS_DIGEST.find((m) => m.valor === modoAviso)?.ajuda}
+                  </p>
+                </div>
+
+                {/* Dia e hora só existem nos modos periódicos: mostrá-los inertes no
+                    modo por execução sugeriria que fazem alguma coisa. */}
+                {modoAviso !== 'cada_execucao' && (
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    {modoAviso === 'semanal' && (
+                      <div className="space-y-2">
+                        <Label htmlFor="dia-aviso">Dia da semana</Label>
+                        <Select value={diaAviso} onValueChange={setDiaAviso} disabled={!avisoLigado}>
+                          <SelectTrigger id="dia-aviso" className="w-full">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {DIAS_SEMANA.map((d) => (
+                              <SelectItem key={d.valor} value={String(d.valor)}>{d.rotulo}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+
+                    <div className="space-y-2">
+                      <Label htmlFor="hora-aviso">Horário</Label>
+                      <Select value={horaAviso} onValueChange={setHoraAviso} disabled={!avisoLigado}>
+                        <SelectTrigger id="hora-aviso" className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {HORAS.map((h) => (
+                            <SelectItem key={h.valor} value={String(h.valor)}>{h.rotulo}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        Horário de Brasília. O agendador passa de 10 em 10 minutos, então
+                        o resumo sai até 10 minutos depois.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {modoAviso !== 'cada_execucao' && (
+                  <p className="rounded-md bg-muted/40 px-4 py-3 text-xs text-muted-foreground">
+                    O resumo junta tudo que foi encontrado desde o aviso anterior, não só
+                    a última execução. Se não houver nada novo, nenhum e-mail é enviado.
+                    {config?.digestLastSentAt
+                      ? ` Último resumo em ${formatarData(config.digestLastSentAt)}.`
+                      : ' Nenhum resumo enviado ainda.'}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-3">

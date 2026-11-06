@@ -62,6 +62,8 @@ export interface Estabelecimento {
   totalAchados: number
 }
 
+export type ModoDigest = 'cada_execucao' | 'diario' | 'semanal'
+
 /** Uma variável `{{nome}}` que o prompt pode usar, como o backend descreve. */
 export interface VariavelPrompt {
   nome: string
@@ -95,6 +97,13 @@ export interface Config {
    */
   digestDestinatarios: string[]
   digestOrigem: 'painel' | 'EMAIL_RECIPIENTS' | 'desligado'
+  /** Quando o aviso sai. */
+  digestMode: ModoDigest
+  /** 0 = domingo, como o extract(dow) do Postgres. Só vale no modo semanal. */
+  digestWeekday: number
+  /** Hora do resumo periódico, em America/Sao_Paulo. */
+  digestHour: number
+  digestLastSentAt: string | null
 
   // ── Prompts ──────────────────────────────────────────────────────────────
   // O backend manda o prompt já resolvido (personalizado ou padrão), o padrão e o
@@ -274,6 +283,45 @@ export function mensagemErro(err: unknown, padrao: string): string {
 
   return resposta?.data?.error || padrao
 }
+
+/**
+ * Quando o aviso sai. `cada_execucao` é o padrão e o comportamento histórico; os dois
+ * periódicos juntam tudo desde o último aviso.
+ */
+export const MODOS_DIGEST: Array<{ valor: ModoDigest; rotulo: string; ajuda: string }> = [
+  {
+    valor: 'cada_execucao',
+    rotulo: 'A cada execução do agente',
+    ajuda: 'Toda rodada que encontrar algo novo manda um e-mail. Com o agente rodando várias vezes ao dia, vira muito e-mail.',
+  },
+  {
+    valor: 'diario',
+    rotulo: 'Um resumo por dia',
+    ajuda: 'Um e-mail por dia, na hora escolhida, com tudo que foi encontrado desde o aviso anterior.',
+  },
+  {
+    valor: 'semanal',
+    rotulo: 'Um resumo por semana',
+    ajuda: 'Um e-mail por semana, no dia e na hora escolhidos, com tudo que foi encontrado desde o aviso anterior.',
+  },
+]
+
+/** 0 = domingo: a mesma convenção do `extract(dow)` do Postgres, dos dois lados. */
+export const DIAS_SEMANA = [
+  { valor: 1, rotulo: 'Segunda-feira' },
+  { valor: 2, rotulo: 'Terça-feira' },
+  { valor: 3, rotulo: 'Quarta-feira' },
+  { valor: 4, rotulo: 'Quinta-feira' },
+  { valor: 5, rotulo: 'Sexta-feira' },
+  { valor: 6, rotulo: 'Sábado' },
+  { valor: 0, rotulo: 'Domingo' },
+] as const
+
+/** Horas cheias. O agendador passa de 10 em 10 min, então o resumo sai no máximo 10 min depois. */
+export const HORAS = Array.from({ length: 24 }, (_, h) => ({
+  valor: h,
+  rotulo: `${String(h).padStart(2, '0')}:00`,
+}))
 
 /** Opções de frequência oferecidas na tela, em minutos. */
 export const FREQUENCIAS = [
