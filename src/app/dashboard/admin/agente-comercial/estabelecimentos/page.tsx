@@ -31,13 +31,16 @@ import {
 } from '@/components/ui/dialog'
 import {
   AlertCircle, ChevronLeft, ChevronRight, ExternalLink, Loader2, Plus, RefreshCw, Search,
+  Users,
 } from 'lucide-react'
 import { api } from '@/lib/api'
 import {
-  BASE, CLASSE_MONITORAMENTO, ROTULO_MONITORAMENTO, formatarDataCurta, mensagemErro,
-  type Estabelecimento, type Paginado, type StatusMonitoramento,
+  BASE, CLASSE_MONITORAMENTO, ROTULO_MONITORAMENTO, formatarCnpj, formatarDataCurta,
+  mensagemErro,
+  type Estabelecimento, type Paginado, type Resumo, type StatusMonitoramento,
 } from '../_lib'
 import { NavAgente } from '../_nav'
+import { PessoasDialog } from '../_pessoas'
 
 const FILTROS = [
   { valor: 'todos', rotulo: 'Todos' },
@@ -76,10 +79,12 @@ export default function EstabelecimentosPage() {
   const [pagina, setPagina] = useState(1)
 
   const [dados, setDados] = useState<Paginado<Estabelecimento> | null>(null)
+  const [resumo, setResumo] = useState<Resumo | null>(null)
   const [loading, setLoading] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
 
   const [editando, setEditando] = useState<Estabelecimento | null>(null)
+  const [vendoPessoas, setVendoPessoas] = useState<Estabelecimento | null>(null)
   const [criando, setCriando] = useState(false)
   const [form, setForm] = useState<Formulario>(VAZIO)
   const [salvando, setSalvando] = useState(false)
@@ -114,6 +119,24 @@ export default function EstabelecimentosPage() {
   useEffect(() => {
     carregar()
   }, [carregar])
+
+  /**
+   * O resumo é complemento: a listagem já reporta o próprio erro, e duas mensagens para
+   * a mesma causa só poluem a tela. Recarrega junto com a lista para o número de
+   * pessoas aguardando conferência não ficar velho depois de uma busca.
+   */
+  const carregarResumo = useCallback(async () => {
+    try {
+      const { data } = await api.get<Resumo>(`${BASE}/resumo`)
+      setResumo(data)
+    } catch {
+      setResumo(null)
+    }
+  }, [])
+
+  useEffect(() => {
+    carregarResumo()
+  }, [carregarResumo])
 
   function abrirEdicao(e: Estabelecimento) {
     setEditando(e)
@@ -197,6 +220,20 @@ export default function EstabelecimentosPage() {
           <p className="text-muted-foreground text-sm">
             Só os monitorados são consultados nome a nome em cada ciclo
           </p>
+          {/* `resumo.pessoas` não existe em servidor antigo — a janela entre o deploy do
+              backend e o do frontend. O optional chaining é o que evita a tela em branco. */}
+          {resumo?.pessoas ? (
+            <p className="text-muted-foreground text-sm">
+              {resumo.pessoas.total} pessoa(s)-chave cadastrada(s)
+              {resumo.pessoas.comEmail > 0 && `, ${resumo.pessoas.comEmail} com e-mail`}
+              {resumo.pessoas.naoConfirmadas > 0 && (
+                <span className="text-amber-600">
+                  {" · "}
+                  {resumo.pessoas.naoConfirmadas} aguardando conferência na fonte
+                </span>
+              )}
+            </p>
+          ) : null}
         </div>
         <Button onClick={abrirCriacao}>
           <Plus className="h-4 w-4 mr-2" />Cadastrar
@@ -267,6 +304,7 @@ export default function EstabelecimentosPage() {
                       <TableHead>Contato</TableHead>
                       <TableHead>Situação</TableHead>
                       <TableHead className="text-right">Achados</TableHead>
+                      <TableHead className="text-right">Pessoas</TableHead>
                       <TableHead>Último e-mail</TableHead>
                       <TableHead className="text-right">Ações</TableHead>
                     </TableRow>
@@ -278,6 +316,7 @@ export default function EstabelecimentosPage() {
                           <div className="truncate font-medium" title={e.name}>{e.name}</div>
                           <div className="text-xs text-muted-foreground">
                             {[e.city, e.state].filter(Boolean).join('/') || '—'}
+                            {e.cnpj ? ` · ${formatarCnpj(e.cnpj)}` : ''}
                             {e.website && (
                               <>
                                 {' · '}
@@ -313,6 +352,25 @@ export default function EstabelecimentosPage() {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right tabular-nums">{e.totalAchados}</TableCell>
+                        <TableCell className="text-right">
+                          <button
+                            type="button"
+                            onClick={() => setVendoPessoas(e)}
+                            className="inline-flex items-center gap-1 tabular-nums hover:underline"
+                            title="Ver e procurar pessoas-chave"
+                          >
+                            {e.totalPessoas}
+                            {e.pessoasNaoConfirmadas > 0 && (
+                              <Badge
+                                variant="outline"
+                                className="bg-amber-500/15 text-amber-600"
+                                title={`${e.pessoasNaoConfirmadas} aguardando conferência na fonte`}
+                              >
+                                {e.pessoasNaoConfirmadas}
+                              </Badge>
+                            )}
+                          </button>
+                        </TableCell>
                         <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
                           {formatarDataCurta(e.lastEmailedAt)}
                         </TableCell>
@@ -334,6 +392,9 @@ export default function EstabelecimentosPage() {
                                 Ignorar
                               </Button>
                             )}
+                            <Button variant="ghost" size="sm" onClick={() => setVendoPessoas(e)}>
+                              <Users className="h-4 w-4 mr-1" />Pessoas
+                            </Button>
                             <Button variant="ghost" size="sm" onClick={() => abrirEdicao(e)}>
                               Editar
                             </Button>
@@ -506,6 +567,13 @@ export default function EstabelecimentosPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ── Dialog: pessoas-chave ──────────────────────────────────── */}
+      <PessoasDialog
+        estabelecimento={vendoPessoas}
+        onFechar={() => setVendoPessoas(null)}
+        onMudou={() => { carregar(); carregarResumo() }}
+      />
     </div>
   )
 }

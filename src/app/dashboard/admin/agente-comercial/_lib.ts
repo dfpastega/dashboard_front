@@ -70,6 +70,11 @@ export interface Estabelecimento {
   notes: string | null
   createdAt: string
   totalAchados: number
+  /** Só dígitos. Preenchido quando a ficha veio do Cadastur. */
+  cnpj: string | null
+  totalPessoas: number
+  /** Quantas pessoas esperam alguém abrir a fonte. */
+  pessoasNaoConfirmadas: number
 }
 
 export type ModoDigest = 'cada_execucao' | 'diario' | 'semanal'
@@ -132,6 +137,13 @@ export interface Config {
   emailPromptFixo: string
   variaveisBusca: VariavelPrompt[]
   variaveisEmail: VariavelPrompt[]
+
+  /** O terceiro prompt: a busca de pessoas-chave do estabelecimento. */
+  peoplePrompt: string
+  peoplePromptPersonalizado: boolean
+  peoplePromptPadrao: string
+  peoplePromptFixo: string
+  variaveisPessoas: VariavelPrompt[]
 }
 
 export interface Busca {
@@ -177,6 +189,12 @@ export interface ExecucaoDetalhada extends Execucao {
 }
 
 export interface Resumo {
+  pessoas: {
+    total: number
+    /** Pessoas cuja fonte o agente não conseguiu ler; esperam conferência humana. */
+    naoConfirmadas: number
+    comEmail: number
+  }
   achados: {
     /** Pendentes que o agente não conseguiu conferir e esperam alguém abrir a fonte. */
     naoConfirmados: number
@@ -367,3 +385,221 @@ export const FREQUENCIAS = [
   { valor: 4320, rotulo: 'A cada 3 dias' },
   { valor: 10080, rotulo: 'Uma vez por semana' },
 ] as const
+
+// ---------------------------------------------------------------------------
+// Cadastur — o universo de prospecção
+// ---------------------------------------------------------------------------
+
+/**
+ * Uma ficha do Cadastur, o cadastro de meios de hospedagem do Ministério do Turismo.
+ * Obrigatório por lei, publicado em dados abertos por trimestre: é a base mais completa
+ * de CNPJ, e-mail e telefone de hotelaria no Brasil.
+ */
+export interface FichaCadastur {
+  id: string
+  cnpj: string
+  razaoSocial: string
+  nomeFantasia: string | null
+  tipoHospedagem: string | null
+  uf: string | null
+  municipio: string | null
+  telefone: string | null
+  email: string | null
+  website: string | null
+  responsavelNome: string | null
+  possuiEmpregado: boolean | null
+  porte: string | null
+  /**
+   * Os idiomas que o próprio estabelecimento declara atender, texto cru do arquivo.
+   * `null` significa "não declarou" — e isso é 43% da base, então a ausência de inglês
+   * aqui é PRIORIDADE de prospecção, não prova de que a equipe não fala inglês.
+   */
+  idiomas: string | null
+  declaraIngles: boolean
+  unidadesHabitacionais: number | null
+  leitos: number | null
+  situacaoAtividade: string | null
+  ativo: boolean
+  /** O arquivo trimestral de onde a linha veio. */
+  fonte: string
+  /** Preenchido quando a ficha já foi promovida ao funil. */
+  establishmentId: string | null
+  monitoringStatus: StatusMonitoramento | null
+  /**
+   * Um estabelecimento do funil com o mesmo nome e cidade, mas sem CNPJ — em geral algo
+   * que o bot descobriu por uma reclamação. Promover adota esse em vez de duplicar.
+   */
+  possivelEstabelecimentoId: string | null
+}
+
+export interface SincronizacaoCadastur {
+  id: string
+  status: 'running' | 'success' | 'skipped' | 'failed'
+  trigger: 'scheduled' | 'manual'
+  recurso: string | null
+  lidas: number
+  inseridas: number
+  atualizadas: number
+  desativadas: number
+  estabelecimentosEnriquecidos: number
+  erro: string | null
+  startedAt: string
+  finishedAt: string | null
+}
+
+export interface ResumoCadastur {
+  total: number
+  emOperacao: number
+  semIngles: number
+  /** Em operação, sem inglês declarado, 30+ UHs e com e-mail. */
+  alvo: number
+  noFunil: number
+  ultimaSincronizacao: SincronizacaoCadastur | null
+}
+
+export interface OpcoesCadastur {
+  ufs: Array<{ uf: string; total: number }>
+  tipos: Array<{ tipo: string; total: number }>
+}
+
+export const FILTROS_INGLES = [
+  { valor: 'todos', rotulo: 'Qualquer idioma' },
+  { valor: 'sem', rotulo: 'Não declara inglês' },
+  { valor: 'branco', rotulo: 'Não declarou idioma' },
+  { valor: 'com', rotulo: 'Declara inglês' },
+] as const
+
+export const CLASSE_SYNC: Record<SincronizacaoCadastur['status'], string> = {
+  running: 'bg-sky-500/15 text-sky-600',
+  success: 'bg-emerald-500/15 text-emerald-600',
+  skipped: 'bg-muted text-muted-foreground',
+  failed: 'bg-red-500/15 text-red-600',
+}
+
+export const ROTULO_SYNC: Record<SincronizacaoCadastur['status'], string> = {
+  running: 'em andamento',
+  success: 'concluída',
+  skipped: 'nada novo',
+  failed: 'falhou',
+}
+
+// ---------------------------------------------------------------------------
+// Pessoas-chave
+// ---------------------------------------------------------------------------
+
+export type GrupoCargo = 'dono' | 'gerencia' | 'rh' | 'outro'
+export type OrigemPessoa = 'cadastur' | 'busca' | 'snovio' | 'manual'
+export type StatusEmailPessoa = 'none' | 'found' | 'verified' | 'invalid'
+
+/** Mesmo eixo dos achados, mais 'manual' para quem foi digitado por uma pessoa. */
+export type VerificacaoPessoa = StatusVerificacao | 'manual'
+
+export interface Pessoa {
+  id: string
+  fullName: string
+  role: string | null
+  roleGroup: GrupoCargo
+  email: string | null
+  emailStatus: StatusEmailPessoa
+  phone: string | null
+  linkedinUrl: string | null
+  origin: OrigemPessoa
+  sourceUrl: string | null
+  /** O trecho literal que sustenta o cargo, conferido contra a página. */
+  sourceExcerpt: string | null
+  verificationStatus: VerificacaoPessoa
+  verificationReason: string | null
+  verifiedAt: string | null
+  notes: string | null
+  createdAt: string
+}
+
+export interface BuscaPessoas {
+  id: string
+  status: 'running' | 'success' | 'failed'
+  instruction: string | null
+  encontradas: number
+  novas: number
+  duplicadas: number
+  naoVerificadas: number
+  custoUsd: string | null
+  erro: string | null
+  startedAt: string
+  finishedAt: string | null
+}
+
+export interface RespostaPessoas {
+  items: Pessoa[]
+  ultimaBusca: BuscaPessoas | null
+}
+
+export const GRUPOS_CARGO: Array<{ valor: GrupoCargo; rotulo: string }> = [
+  { valor: 'dono', rotulo: 'Dono / sócio' },
+  { valor: 'gerencia', rotulo: 'Gerência' },
+  { valor: 'rh', rotulo: 'RH / treinamento' },
+  { valor: 'outro', rotulo: 'Outro' },
+]
+
+export const ROTULO_GRUPO: Record<GrupoCargo, string> = {
+  dono: 'dono',
+  gerencia: 'gerência',
+  rh: 'RH',
+  outro: 'outro',
+}
+
+export const CLASSE_GRUPO: Record<GrupoCargo, string> = {
+  dono: 'bg-violet-500/15 text-violet-600',
+  gerencia: 'bg-sky-500/15 text-sky-600',
+  rh: 'bg-teal-500/15 text-teal-600',
+  outro: 'bg-muted text-muted-foreground',
+}
+
+export const ROTULO_ORIGEM_PESSOA: Record<OrigemPessoa, string> = {
+  cadastur: 'Cadastur',
+  busca: 'busca do agente',
+  snovio: 'Snov.io',
+  manual: 'cadastro manual',
+}
+
+/**
+ * O que cada estado do e-mail significa. A distinção entre "achado na fonte" e
+ * "validado" é a que importa: endereço que aparece numa página pode estar velho, e o
+ * agente nunca monta endereço a partir do nome.
+ */
+export const AJUDA_EMAIL_PESSOA: Record<StatusEmailPessoa, string> = {
+  none: 'Sem e-mail.',
+  found: 'Apareceu escrito na fonte citada. Não foi validado — pode estar desatualizado.',
+  verified: 'Validado por um serviço de verificação de e-mail.',
+  invalid: 'A validação reprovou este endereço. Não envie.',
+}
+
+export const ROTULO_VERIFICACAO_PESSOA: Record<VerificacaoPessoa, string> = {
+  verified: 'conferido',
+  unverified: 'não conferido',
+  confirmed: 'confirmado por pessoa',
+  manual: 'cadastro manual',
+}
+
+export const CLASSE_VERIFICACAO_PESSOA: Record<VerificacaoPessoa, string> = {
+  verified: 'bg-emerald-500/15 text-emerald-600',
+  unverified: 'bg-amber-500/15 text-amber-600',
+  confirmed: 'bg-sky-500/15 text-sky-600',
+  manual: 'bg-muted text-muted-foreground',
+}
+
+export const AJUDA_VERIFICACAO_PESSOA: Record<VerificacaoPessoa, string> = {
+  verified: 'O agente abriu a página e achou o nome desta pessoa lá, palavra por palavra.',
+  unverified:
+    'O agente não conseguiu ler a página — em geral o site bloqueia leitura automática. ' +
+    'A pessoa pode existir: abra a fonte e confira o nome e o cargo.',
+  confirmed: 'Alguém do time abriu a fonte e confirmou o nome e o cargo.',
+  manual: 'Digitado por alguém do time; não passou por conferência automática.',
+}
+
+/** CNPJ só com dígitos vindo do backend, formatado para leitura. */
+export function formatarCnpj(cnpj: string | null): string {
+  if (!cnpj) return '—'
+  const d = cnpj.replace(/\D/g, '')
+  if (d.length !== 14) return cnpj
+  return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12)}`
+}

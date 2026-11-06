@@ -15,6 +15,7 @@ import { PAGINA } from './_lib'
 
 const ABAS = [
   { href: PAGINA, rotulo: 'Achados' },
+  { href: `${PAGINA}/cadastur`, rotulo: 'Cadastur' },
   { href: `${PAGINA}/estabelecimentos`, rotulo: 'Estabelecimentos' },
   { href: `${PAGINA}/execucoes`, rotulo: 'Execuções' },
   { href: `${PAGINA}/configuracao`, rotulo: 'Configuração' },

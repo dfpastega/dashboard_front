@@ -3,10 +3,10 @@
 /**
  * Agente Comercial — os prompts.
  *
- * Duas coisas que o agente escreve com IA, e as duas ficam aqui à vista: o comando que
- * vai para a busca na web e o comando que escreve o rascunho do e-mail. É nesta tela
- * que se mexe em tom de voz, personalidade, região, sites consultados e tamanho do
- * texto — sem passar por deploy.
+ * Três coisas que o agente escreve com IA, e as três ficam aqui à vista: o comando da
+ * busca de reclamações, o que escreve o rascunho do e-mail e o da busca de
+ * pessoas-chave. É nesta tela que se mexe em tom de voz, personalidade, região, sites
+ * consultados e tamanho do texto — sem passar por deploy.
  *
  * Cada prompt tem duas partes, e a separação é deliberada:
  *
@@ -36,7 +36,7 @@ import { api } from '@/lib/api'
 import { BASE, mensagemErro, type Config, type VariavelPrompt } from '../_lib'
 import { NavAgente } from '../_nav'
 
-type Qual = 'busca' | 'email'
+type Qual = 'busca' | 'email' | 'pessoas'
 
 export default function PromptsPage() {
   const [config, setConfig] = useState<Config | null>(null)
@@ -47,11 +47,13 @@ export default function PromptsPage() {
   // Rascunhos: o que está nas caixas até alguém salvar.
   const [textoBusca, setTextoBusca] = useState('')
   const [textoEmail, setTextoEmail] = useState('')
+  const [textoPessoas, setTextoPessoas] = useState('')
 
   const aplicar = useCallback((cfg: Config) => {
     setConfig(cfg)
     setTextoBusca(cfg.searchPrompt ?? '')
     setTextoEmail(cfg.emailPrompt ?? '')
+    setTextoPessoas(cfg.peoplePrompt ?? '')
   }, [])
 
   const carregar = useCallback(async () => {
@@ -78,7 +80,10 @@ export default function PromptsPage() {
   async function salvar(qual: Qual, valor: string | null) {
     setSalvando(qual)
     try {
-      const campo = qual === 'busca' ? 'searchPrompt' : 'emailPrompt'
+      const campo =
+        qual === 'busca' ? 'searchPrompt'
+          : qual === 'email' ? 'emailPrompt'
+            : 'peoplePrompt'
       const { data } = await api.put<{ config: Config }>(`${BASE}/config`, { [campo]: valor })
       aplicar(data.config)
       toast.success(valor === null ? 'Prompt restaurado para o padrão.' : 'Prompt salvo.')
@@ -171,13 +176,31 @@ export default function PromptsPage() {
             onSalvar={() => salvar('email', textoEmail)}
             onRestaurar={() => salvar('email', null)}
           />
+
+          <CardPrompt
+            id="pessoas"
+            titulo="Prompt das pessoas-chave"
+            descricao="Procura dono, gerência e RH do estabelecimento em fontes públicas. É disparado por quem clica em Pessoas na tela de Estabelecimentos, e é aqui que se escolhe onde procurar."
+            valor={textoPessoas}
+            salvo={config.peoplePrompt}
+            padrao={config.peoplePromptPadrao}
+            personalizado={config.peoplePromptPersonalizado}
+            blocoFixo={config.peoplePromptFixo}
+            explicacaoFixo="Três garantias que não dá para afrouxar: trecho literal com a URL onde o nome aparece; nunca montar e-mail a partir do nome e do domínio (endereço inventado volta como bounce e queima a reputação do nosso envio); e limite de coleta — só nome, cargo, e-mail profissional e perfil público."
+            variaveis={config.variaveisPessoas}
+            salvando={salvando === 'pessoas'}
+            bloqueado={salvando !== null}
+            onChange={setTextoPessoas}
+            onSalvar={() => salvar('pessoas', textoPessoas)}
+            onRestaurar={() => salvar('pessoas', null)}
+          />
           </>
           )}
 
           <p className="text-xs text-muted-foreground">
-            Há uma terceira chamada à IA, entre a busca e o e-mail, que só converte o
-            resultado da busca em dados e não aceita prompt: ela não decide nada de
-            conteúdo e trabalha restrita às páginas que a busca citou de fato.
+            As duas buscas têm uma chamada a mais à IA, que só converte o resultado em
+            dados e não aceita prompt: ela não decide nada de conteúdo e trabalha restrita
+            às páginas que a busca citou de fato.
           </p>
         </>
       )}
