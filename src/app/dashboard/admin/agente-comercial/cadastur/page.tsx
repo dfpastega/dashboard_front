@@ -275,6 +275,38 @@ export default function CadasturPage() {
         </div>
       ) : null}
 
+      {/* ── A cobertura, do lado do funil ──────────────────────────────────────
+          Os cards acima descrevem o universo de 21 mil fichas. Este bloco responde
+          outra pergunta, que é a que decide quanto a busca paga vai custar: de tudo
+          que já está no NOSSO funil, quanto já sabemos quem é? */}
+      {resumo && resumo.funil.total > 0 && (
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-md border bg-muted/40 px-4 py-3 text-sm">
+          <span className="font-medium">Cobertura do funil</span>
+          <span className="text-muted-foreground">
+            <span className="font-medium text-foreground tabular-nums">
+              {resumo.funil.comCnpj.toLocaleString('pt-BR')}
+            </span>{' '}
+            de {resumo.funil.total.toLocaleString('pt-BR')} identificados no Cadastur
+          </span>
+          {resumo.funil.candidatos > 0 && (
+            <a
+              href={`${PAGINA}/estabelecimentos`}
+              className="font-medium text-amber-600 hover:underline"
+            >
+              {resumo.funil.candidatos.toLocaleString('pt-BR')} esperando conferência
+            </a>
+          )}
+          {resumo.funil.aProcurar > 0 && (
+            <span className="text-muted-foreground tabular-nums">
+              {resumo.funil.aProcurar.toLocaleString('pt-BR')} a procurar
+            </span>
+          )}
+          <span className="text-muted-foreground tabular-nums">
+            {resumo.funil.semEmail.toLocaleString('pt-BR')} ainda sem e-mail
+          </span>
+        </div>
+      )}
+
       {/* ── O que o campo "idiomas" é e o que não é ────────────────────────── */}
       {!baseVazia && (
         <div className="flex gap-2 rounded-md border bg-muted/40 px-4 py-3 text-sm">
@@ -618,6 +650,8 @@ export default function CadasturPage() {
                 {sync.inseridas.toLocaleString('pt-BR')} novas ·{' '}
                 {sync.atualizadas.toLocaleString('pt-BR')} atualizadas ·{' '}
                 {sync.desativadas.toLocaleString('pt-BR')} saíram do cadastro ·{' '}
+                {sync.estabelecimentosCasados.toLocaleString('pt-BR')} identificados por
+                nome + cidade ·{' '}
                 {sync.estabelecimentosEnriquecidos.toLocaleString('pt-BR')} estabelecimentos
                 do funil enriquecidos
               </p>
