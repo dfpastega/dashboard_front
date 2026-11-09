@@ -91,6 +91,7 @@ export default function EstabelecimentosPage() {
   const [salvando, setSalvando] = useState(false)
   /** Qual linha está mexendo na ficha do Cadastur agora. */
   const [casando, setCasando] = useState<string | null>(null)
+  const [cnpjManual, setCnpjManual] = useState('')
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -219,7 +220,36 @@ export default function EstabelecimentosPage() {
     }
   }
 
+  /**
+   * Vínculo manual por CNPJ. É a saída para o hotel cuja ficha o nome não acha — ou acha
+   * errado: 'B&B HOTEL SP Luz Centro' casa com 'Hotel SP Centro' por trigramas, e só uma
+   * pessoa sabe que a ficha certa é a 'B&B Hotels SP Luz'. Não passa por limiar.
+   */
+  async function vincularPorCnpj(e: Estabelecimento) {
+    const limpo = cnpjManual.replace(/\D/g, '')
+    if (limpo.length !== 14) {
+      toast.error('O CNPJ precisa ter 14 dígitos.')
+      return
+    }
+    setCasando(e.id)
+    try {
+      const { data } = await api.post<{ message: string }>(
+        `${BASE}/estabelecimentos/${e.id}/cadastur`,
+        { cnpj: limpo },
+      )
+      toast.success(data.message)
+      setCnpjManual('')
+      setEditando(null)
+      carregar()
+    } catch (err) {
+      toast.error(mensagemErro(err, 'Não foi possível vincular a ficha.'))
+    } finally {
+      setCasando(null)
+    }
+  }
+
   function abrirEdicao(e: Estabelecimento) {
+    setCnpjManual('')
     setEditando(e)
     setCriando(false)
     setForm({
@@ -689,6 +719,34 @@ export default function EstabelecimentosPage() {
                 rows={3}
               />
             </div>
+
+            {editando && !editando.cnpj && (
+              <div className="space-y-2 border-t pt-4">
+                <Label htmlFor="f-cnpj">Ficha do Cadastur (CNPJ)</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="f-cnpj"
+                    value={cnpjManual}
+                    onChange={(e) => setCnpjManual(e.target.value)}
+                    placeholder="00.000.000/0000-00"
+                  />
+                  <Button
+                    variant="outline"
+                    disabled={casando === editando.id || !cnpjManual.trim()}
+                    onClick={() => vincularPorCnpj(editando)}
+                  >
+                    {casando === editando.id
+                      ? <Loader2 className="h-4 w-4 animate-spin" />
+                      : 'Vincular'}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Para o hotel cuja ficha o nome não acha — ou acha errada. Vincula na hora e
+                  preenche os campos vazios com os dados oficiais; não passa pelo limiar de
+                  semelhança, porque a escolha é sua.
+                </p>
+              </div>
+            )}
           </div>
 
           <DialogFooter>
