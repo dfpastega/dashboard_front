@@ -75,6 +75,49 @@ export interface Estabelecimento {
   totalPessoas: number
   /** Quantas pessoas esperam alguém abrir a fonte. */
   pessoasNaoConfirmadas: number
+
+  // ── Casamento com a ficha do Cadastur ──────────────────────────────────────
+  cadasturMatchStatus: StatusCasamento
+  /** A ficha mais parecida, quando o vínculo não foi automático. */
+  cadasturCandidateCnpj: string | null
+  cadasturCandidateNome: string | null
+  /** Similaridade de 0 a 1; o backend manda string de NUMERIC. */
+  cadasturMatchScore: string | null
+}
+
+/**
+ * Onde o casamento com o Cadastur parou.
+ *
+ * O estabelecimento que o bot descobre numa reclamação entra sem CNPJ, e o
+ * enriquecimento oficial é por CNPJ. Este eixo diz se já sabemos QUEM é o hotel.
+ */
+export type StatusCasamento = 'pending' | 'linked' | 'candidate' | 'none' | 'rejected'
+
+export const ROTULO_CASAMENTO: Record<StatusCasamento, string> = {
+  pending: 'a procurar',
+  linked: 'identificado',
+  candidate: 'confira a ficha',
+  none: 'fora do Cadastur',
+  rejected: 'sem ficha',
+}
+
+export const CLASSE_CASAMENTO: Record<StatusCasamento, string> = {
+  pending: 'bg-muted text-muted-foreground',
+  linked: 'bg-emerald-500/15 text-emerald-600',
+  candidate: 'bg-amber-500/15 text-amber-600',
+  none: 'bg-muted text-muted-foreground',
+  rejected: 'bg-muted text-muted-foreground',
+}
+
+export const AJUDA_CASAMENTO: Record<StatusCasamento, string> = {
+  pending: 'Ainda não foi procurado no Cadastur. A importação procura sozinha; o botão força agora.',
+  linked:
+    'Tem ficha no Cadastur: CNPJ, e-mail e telefone oficiais já preencheram o que estava vazio.',
+  candidate:
+    'Existe uma ficha parecida, mas não o bastante para o sistema decidir sozinho. ' +
+    'Confira o nome e a cidade: vincular o hotel errado faz o e-mail citar uma reclamação que não é dele.',
+  none: 'Procurado e não encontrado — nenhuma ficha parecida na cidade nem na UF.',
+  rejected: 'Alguém olhou a ficha sugerida e disse que não é o mesmo hotel.',
 }
 
 export type ModoDigest = 'cada_execucao' | 'diario' | 'semanal'
@@ -442,6 +485,8 @@ export interface SincronizacaoCadastur {
   atualizadas: number
   desativadas: number
   estabelecimentosEnriquecidos: number
+  /** Descobertos pelo bot que esta importação identificou por nome + cidade. */
+  estabelecimentosCasados: number
   erro: string | null
   startedAt: string
   finishedAt: string | null
@@ -454,6 +499,18 @@ export interface ResumoCadastur {
   /** Em operação, sem inglês declarado, 30+ UHs e com e-mail. */
   alvo: number
   noFunil: number
+  /**
+   * A cobertura do casamento, do lado do funil. Os outros números descrevem o universo
+   * de 21 mil fichas; estes dizem quanto do NOSSO funil já está identificado — é a
+   * medida de quanto a busca paga ainda vai precisar fazer.
+   */
+  funil: {
+    total: number
+    comCnpj: number
+    candidatos: number
+    aProcurar: number
+    semEmail: number
+  }
   ultimaSincronizacao: SincronizacaoCadastur | null
 }
 

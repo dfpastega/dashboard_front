@@ -30,14 +30,15 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
 import {
-  AlertCircle, ChevronLeft, ChevronRight, ExternalLink, Loader2, Plus, RefreshCw, Search,
-  Users,
+  AlertCircle, ChevronLeft, ChevronRight, ExternalLink, Link2, Loader2, Plus, RefreshCw,
+  Search, Users,
 } from 'lucide-react'
 import { api } from '@/lib/api'
 import {
-  BASE, CLASSE_MONITORAMENTO, ROTULO_MONITORAMENTO, formatarCnpj, formatarDataCurta,
-  mensagemErro,
-  type Estabelecimento, type Paginado, type Resumo, type StatusMonitoramento,
+  AJUDA_CASAMENTO, BASE, CLASSE_MONITORAMENTO, ROTULO_MONITORAMENTO, formatarCnpj,
+  formatarDataCurta, mensagemErro,
+  type Estabelecimento, type Paginado, type Resumo, type StatusCasamento,
+  type StatusMonitoramento,
 } from '../_lib'
 import { NavAgente } from '../_nav'
 import { PessoasDialog } from '../_pessoas'
@@ -88,6 +89,8 @@ export default function EstabelecimentosPage() {
   const [criando, setCriando] = useState(false)
   const [form, setForm] = useState<Formulario>(VAZIO)
   const [salvando, setSalvando] = useState(false)
+  /** Qual linha está mexendo na ficha do Cadastur agora. */
+  const [casando, setCasando] = useState<string | null>(null)
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -137,6 +140,65 @@ export default function EstabelecimentosPage() {
   useEffect(() => {
     carregarResumo()
   }, [carregarResumo])
+
+  // ── Ficha do Cadastur ──────────────────────────────────────────────────────
+  //
+  // Nenhuma das três gasta API paga: é consulta ao espelho local do Cadastur. Daí não
+  // haver confirmação nem aviso de custo, ao contrário da busca de pessoas.
+
+  /** Procura a ficha por nome + cidade agora, sem esperar a próxima importação. */
+  async function casarCadastur(e: Estabelecimento) {
+    setCasando(e.id)
+    try {
+      const { data } = await api.post<{
+        message: string
+        resultado: { status: StatusCasamento }
+      }>(`${BASE}/estabelecimentos/${e.id}/casar-cadastur`)
+
+      // 'linked' é sucesso; candidato e "não achei" são informação, não conquista.
+      if (data.resultado.status === 'linked') toast.success(data.message)
+      else toast.info(data.message)
+      carregar()
+    } catch (err) {
+      toast.error(mensagemErro(err, 'Não foi possível procurar no Cadastur.'))
+    } finally {
+      setCasando(null)
+    }
+  }
+
+  /** "É este hotel": vincula a ficha candidata, sem limiar. */
+  async function vincularFicha(e: Estabelecimento) {
+    if (!e.cadasturCandidateCnpj) return
+    setCasando(e.id)
+    try {
+      const { data } = await api.post<{ message: string }>(
+        `${BASE}/estabelecimentos/${e.id}/cadastur`,
+        { cnpj: e.cadasturCandidateCnpj },
+      )
+      toast.success(data.message)
+      carregar()
+    } catch (err) {
+      toast.error(mensagemErro(err, 'Não foi possível vincular a ficha.'))
+    } finally {
+      setCasando(null)
+    }
+  }
+
+  /** "Não é": decisão terminal — a ficha não volta a ser sugerida. */
+  async function recusarFicha(e: Estabelecimento) {
+    setCasando(e.id)
+    try {
+      const { data } = await api.delete<{ message: string }>(
+        `${BASE}/estabelecimentos/${e.id}/cadastur`,
+      )
+      toast.success(data.message)
+      carregar()
+    } catch (err) {
+      toast.error(mensagemErro(err, 'Não foi possível recusar a ficha.'))
+    } finally {
+      setCasando(null)
+    }
+  }
 
   function abrirEdicao(e: Estabelecimento) {
     setEditando(e)
@@ -331,6 +393,38 @@ export default function EstabelecimentosPage() {
                               </>
                             )}
                           </div>
+                          {/* O candidato empatado ou de nota baixa. Fica aqui, na linha,
+                              e não num dialog: a decisão se toma comparando o nome e a
+                              cidade que estão logo acima. */}
+                          {e.cadasturMatchStatus === 'candidate' && e.cadasturCandidateCnpj && (
+                            <div className="mt-1 space-y-1 rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+                              <div>
+                                Pode ser{' '}
+                                <span className="font-medium">{e.cadasturCandidateNome}</span>
+                                {' · '}{formatarCnpj(e.cadasturCandidateCnpj)}
+                                {e.cadasturMatchScore
+                                  ? ` · semelhança ${e.cadasturMatchScore}`
+                                  : ''}
+                              </div>
+                              <div className="flex gap-1">
+                                <Button
+                                  size="sm" variant="outline"
+                                  className="h-6 bg-background px-2"
+                                  disabled={casando === e.id}
+                                  onClick={() => vincularFicha(e)}
+                                >
+                                  É este
+                                </Button>
+                                <Button
+                                  size="sm" variant="ghost" className="h-6 px-2"
+                                  disabled={casando === e.id}
+                                  onClick={() => recusarFicha(e)}
+                                >
+                                  Não é
+                                </Button>
+                              </div>
+                            </div>
+                          )}
                         </TableCell>
                         <TableCell className="max-w-[16rem] text-sm">
                           {e.contactEmail ? (
@@ -390,6 +484,19 @@ export default function EstabelecimentosPage() {
                                 onClick={() => mudarMonitoramento(e, 'ignored')}
                               >
                                 Ignorar
+                              </Button>
+                            )}
+                            {!e.cnpj && e.cadasturMatchStatus !== 'candidate' && (
+                              <Button
+                                variant="ghost" size="sm"
+                                disabled={casando === e.id}
+                                onClick={() => casarCadastur(e)}
+                                title={AJUDA_CASAMENTO[e.cadasturMatchStatus]}
+                              >
+                                {casando === e.id
+                                  ? <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                                  : <Link2 className="h-4 w-4 mr-1" />}
+                                Cadastur
                               </Button>
                             )}
                             <Button variant="ghost" size="sm" onClick={() => setVendoPessoas(e)}>
