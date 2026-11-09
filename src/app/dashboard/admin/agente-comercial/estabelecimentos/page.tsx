@@ -30,7 +30,7 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
 import {
-  AlertCircle, ChevronLeft, ChevronRight, ExternalLink, Link2, Loader2, Plus, RefreshCw,
+  AlertCircle, ChevronLeft, ChevronRight, ExternalLink, Link2, Loader2, Plus, RefreshCw, Unlink,
   Search, Users,
 } from 'lucide-react'
 import { api } from '@/lib/api'
@@ -195,6 +195,25 @@ export default function EstabelecimentosPage() {
       carregar()
     } catch (err) {
       toast.error(mensagemErro(err, 'Não foi possível recusar a ficha.'))
+    } finally {
+      setCasando(null)
+    }
+  }
+
+  /**
+   * Desfaz um vínculo errado — o casamento por nome erra, e sem isto o erro fica para
+   * sempre. Limpa só o que veio da ficha; o que alguém digitou depois fica.
+   */
+  async function desvincularFicha(e: Estabelecimento) {
+    setCasando(e.id)
+    try {
+      const { data } = await api.delete<{ message: string }>(
+        `${BASE}/estabelecimentos/${e.id}/vinculo-cadastur`,
+      )
+      toast.success(data.message)
+      carregar()
+    } catch (err) {
+      toast.error(mensagemErro(err, 'Não foi possível desfazer o vínculo.'))
     } finally {
       setCasando(null)
     }
@@ -484,6 +503,19 @@ export default function EstabelecimentosPage() {
                                 onClick={() => mudarMonitoramento(e, 'ignored')}
                               >
                                 Ignorar
+                              </Button>
+                            )}
+                            {e.cnpj && e.cadasturMatchStatus === 'linked' && (
+                              <Button
+                                variant="ghost" size="sm"
+                                disabled={casando === e.id}
+                                onClick={() => desvincularFicha(e)}
+                                title="Não é este hotel: desfaz o vínculo e limpa o que veio da ficha do Cadastur."
+                              >
+                                {casando === e.id
+                                  ? <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                                  : <Unlink className="h-4 w-4 mr-1" />}
+                                Desvincular
                               </Button>
                             )}
                             {!e.cnpj && e.cadasturMatchStatus !== 'candidate' && (
