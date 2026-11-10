@@ -422,7 +422,10 @@ export default function EstabelecimentosPage() {
                   </TableHeader>
                   <TableBody>
                     {dados.items.map((e) => (
-                      <TableRow key={e.id}>
+                      /* `align-top` porque a linha cresce quando há sugestão de ficha:
+                         sem isto o selo "sem e-mail" e a situação flutuam no meio da
+                         altura, longe do nome a que se referem. */
+                      <TableRow key={e.id} className="[&>td]:align-top">
                         <TableCell className="max-w-[16rem]">
                           <div className="truncate font-medium" title={e.name}>{e.name}</div>
                           <div className="text-xs text-muted-foreground">
@@ -446,7 +449,7 @@ export default function EstabelecimentosPage() {
                               e não num dialog: a decisão se toma comparando o nome e a
                               cidade que estão logo acima. */}
                           {e.cadasturMatchStatus === 'candidate' && e.cadasturCandidateCnpj && (
-                            <div className="mt-1 space-y-1 rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+                            <div className="mt-1 space-y-1 whitespace-normal break-words rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
                               <div>
                                 Pode ser{' '}
                                 <span className="font-medium">{e.cadasturCandidateNome}</span>
