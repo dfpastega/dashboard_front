@@ -31,7 +31,7 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
 import {
-  AlertCircle, Check, ChevronLeft, ChevronRight, Copy, ExternalLink, Loader2, Play,
+  AlertCircle, Check, ChevronLeft, ChevronRight, Copy, ExternalLink, Loader2, Lock, Play,
   RefreshCw, Search, ShieldAlert, ShieldCheck, X,
 } from 'lucide-react'
 import { api } from '@/lib/api'
@@ -261,6 +261,9 @@ export default function AgenteComercialPage() {
     }
   }
 
+  /** Trava de gasto do servidor; ver a aba Configuração. */
+  const travado = config?.travado === true
+
   const totalPaginas = dados ? Math.max(1, Math.ceil(dados.total / dados.porPagina)) : 1
 
   return (
@@ -273,8 +276,13 @@ export default function AgenteComercialPage() {
           </p>
         </div>
         {/* Sem `disabled` pelo estado do agente: a busca avulsa existe justamente
-            para rodar com ele desligado e fora da janela. */}
-        <Button onClick={() => setDialogBusca(true)} disabled={executando}>
+            para rodar com ele desligado e fora da janela. A trava de gasto é outra
+            coisa — ela fecha também a avulsa, porque a avulsa gasta. */}
+        <Button
+          onClick={() => setDialogBusca(true)}
+          disabled={executando || travado}
+          title={travado ? 'Travado no servidor: a busca avulsa também gasta' : undefined}
+        >
           {executando
             ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />{aguardando ? 'Buscando…' : 'Iniciando…'}</>
             : <><Play className="h-4 w-4 mr-2" />Buscar agora</>}
@@ -283,7 +291,21 @@ export default function AgenteComercialPage() {
 
       <NavAgente />
 
-      {config && !config.isActive && (
+      {travado && (
+        <div className="flex flex-wrap items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+          <Lock className="h-4 w-4 shrink-0" />
+          <span>
+            O agente está travado no servidor: nada que gaste roda — nem o ciclo, nem
+            &ldquo;Buscar agora&rdquo;, nem o enriquecimento. Revisar e aceitar o que já existe
+            continua liberado.
+          </span>
+          <Link href={`${PAGINA}/configuracao`} className="font-medium underline">
+            Ver na configuração
+          </Link>
+        </div>
+      )}
+
+      {config && !config.isActive && !travado && (
         <div className="flex flex-wrap items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
           <AlertCircle className="h-4 w-4 shrink-0" />
           <span>

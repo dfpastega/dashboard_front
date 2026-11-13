@@ -30,7 +30,7 @@ import {
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
-import { AlertCircle, Loader2, Mail, Play, Plus, Save, Trash2, X } from 'lucide-react'
+import { AlertCircle, Loader2, Lock, Mail, Play, Plus, Save, Trash2, X } from 'lucide-react'
 import { api } from '@/lib/api'
 import {
   BASE, DIAS_SEMANA, FREQUENCIAS, HORAS, MODOS_DIGEST, PAGINA,
@@ -264,6 +264,13 @@ export default function ConfiguracaoPage() {
     setNovoEmail('')
   }
 
+  /**
+   * Trava de gasto do servidor. Quem decide é o backend (423 em tudo que gasta); a
+   * tela só não oferece o clique — chave desabilitada explica melhor que um erro
+   * depois do clique, e deixa claro que não é bug nem permissão.
+   */
+  const travado = config?.travado === true
+
   const buscasAtivas = buscas.filter((b) => b.isActive).length
   const dialogBuscaAberto = criandoBusca || !!editandoBusca
 
@@ -288,6 +295,26 @@ export default function ConfiguracaoPage() {
         </div>
       ) : (
         <>
+          {travado && (
+            <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+              <Lock className="mt-0.5 h-4 w-4 shrink-0" />
+              <div className="space-y-1">
+                <p className="font-medium">O agente está travado no servidor.</p>
+                <p className="text-xs">
+                  Enquanto a trava estiver de pé, nada que gaste roda: ligar o agente, o ciclo
+                  agendado, a busca avulsa, o enriquecimento e a varredura do Snov.io são
+                  recusados, mesmo para quem é super admin. Revisar achados, aceitar sugestões e
+                  editar esta configuração continuam liberados.
+                </p>
+                <p className="text-xs">
+                  Destravar não é um clique daqui: exige{' '}
+                  <code className="font-mono">AGENTE_COMERCIAL_LIBERADO=true</code> nas variáveis
+                  de ambiente do servidor.
+                </p>
+              </div>
+            </div>
+          )}
+
           {config && !config.openaiConfigurada && (
             <div className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
               <AlertCircle className="h-4 w-4 shrink-0" />
@@ -312,10 +339,18 @@ export default function ConfiguracaoPage() {
                 <div className="space-y-0.5">
                   <Label htmlFor="ativo" className="text-base">Agente ligado</Label>
                   <p className="text-xs text-muted-foreground">
-                    Desligado, nenhum ciclo roda e nada é cobrado.
+                    {travado
+                      ? 'Travado no servidor: ligar está bloqueado até a trava sair.'
+                      : 'Desligado, nenhum ciclo roda e nada é cobrado.'}
                   </p>
                 </div>
-                <Switch id="ativo" checked={ativo} onCheckedChange={setAtivo} />
+                <Switch
+                  id="ativo"
+                  checked={ativo}
+                  onCheckedChange={setAtivo}
+                  disabled={travado}
+                  title={travado ? config?.motivoTrava ?? 'Travado no servidor.' : undefined}
+                />
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
@@ -453,11 +488,13 @@ export default function ConfiguracaoPage() {
                 <Button
                   variant="outline"
                   onClick={rodarCicloCompleto}
-                  disabled={salvando || !config?.isActive}
+                  disabled={salvando || travado || !config?.isActive}
                   title={
-                    config?.isActive
-                      ? 'Roda todas as buscas configuradas na próxima passada do agendador'
-                      : 'Ligue o agente para usar o ciclo completo'
+                    travado
+                      ? 'Travado no servidor: o ciclo não roda'
+                      : config?.isActive
+                        ? 'Roda todas as buscas configuradas na próxima passada do agendador'
+                        : 'Ligue o agente para usar o ciclo completo'
                   }
                 >
                   {salvando ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Play className="h-4 w-4 mr-2" />}

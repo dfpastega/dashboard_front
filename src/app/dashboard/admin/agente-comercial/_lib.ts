@@ -170,6 +170,14 @@ export interface Config {
   snovioEnabled?: boolean
   /** Só diz se as credenciais do Snov.io existem no servidor — nunca o valor. */
   snovioConfigurado?: boolean
+  /**
+   * Trava de gasto do servidor (variável de ambiente, não campo de banco). Enquanto
+   * `travado` for true, o servidor recusa ligar o agente com 423 e nada pago roda —
+   * a tela desabilita a chave em vez de oferecer um clique que vai ser negado.
+   * Opcionais porque servidor antigo não manda os campos.
+   */
+  travado?: boolean
+  motivoTrava?: string
   lastRunAt: string | null
   forceRunRequestedAt: string | null
   nextRunAt: string | null
