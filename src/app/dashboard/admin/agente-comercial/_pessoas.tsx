@@ -38,7 +38,7 @@ import { api } from '@/lib/api'
 import {
   AJUDA_EMAIL_PESSOA, AJUDA_VERIFICACAO_PESSOA, BASE, CLASSE_GRUPO,
   CLASSE_VERIFICACAO_PESSOA, GRUPOS_CARGO, ROTULO_GRUPO, ROTULO_ORIGEM_PESSOA,
-  ROTULO_VERIFICACAO_PESSOA, formatarUsd, mensagemErro,
+  ROTULO_VERIFICACAO_PESSOA, formatarData, formatarUsd, mensagemErro,
   type Estabelecimento, type GrupoCargo, type Pessoa, type RespostaPessoas,
 } from './_lib'
 
@@ -69,6 +69,8 @@ export function PessoasDialog({
   const [loading, setLoading] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [buscando, setBuscando] = useState(false)
+  /** Segundos desde que a busca começou: a espera passa de um minuto. */
+  const [segundosDeEspera, setSegundosDeEspera] = useState(0)
   const [instrucao, setInstrucao] = useState('')
   const [confirmando, setConfirmando] = useState<string | null>(null)
   const [removendo, setRemovendo] = useState<string | null>(null)
@@ -92,6 +94,13 @@ export function PessoasDialog({
     }
   }, [id])
 
+  // O cronômetro da espera. Sem um número andando, um minuto de silêncio parece erro.
+  useEffect(() => {
+    if (!buscando) return
+    const t = setInterval(() => setSegundosDeEspera((v) => v + 1), 1000)
+    return () => clearInterval(t)
+  }, [buscando])
+
   useEffect(() => {
     if (!id) {
       setDados(null)
@@ -103,23 +112,73 @@ export function PessoasDialog({
     carregar()
   }, [id, carregar])
 
+  /**
+   * A busca de pessoas.
+   *
+   * O POST responde **202 na hora** e o trabalho segue no servidor. Antes esta função
+   * aguardava a resposta, e por isso **nenhuma busca de pessoas jamais terminou em
+   * produção**: o roteador do Heroku corta a requisição em 30 s e esta é uma chamada
+   * com busca web, da mesma família das que levam ~79 s. A tela mostrava erro de uma
+   * busca que estava indo bem, e quem clicou clicava de novo, pagando duas vezes.
+   *
+   * Quem acompanha é `ultimaBusca` da própria listagem: nasce `running` e fecha
+   * `success`/`failed`.
+   */
   async function buscar() {
     if (!id) return
+    setSegundosDeEspera(0)
     setBuscando(true)
     try {
-      const { data } = await api.post<{ message: string; custoUsd: string; naoVerificadas: number }>(
+      const { data } = await api.post<{ message: string }>(
         `${BASE}/estabelecimentos/${id}/pessoas/buscar`,
         { instrucao: instrucao.trim() || null },
       )
-      toast.success(data.message, {
-        description: data.naoVerificadas > 0
-          ? `${data.naoVerificadas} aguardam você conferir a fonte · custo ${formatarUsd(data.custoUsd)}`
-          : `Custo da busca: ${formatarUsd(data.custoUsd)}`,
-      })
-      await carregar()
-      onMudou()
+      toast.info(data.message)
+      await acompanharBusca(id)
     } catch (err) {
-      toast.error(mensagemErro(err, 'Não foi possível buscar.'))
+      toast.error(mensagemErro(err, 'Não foi possível iniciar a busca.'))
+      setBuscando(false)
+    }
+  }
+
+  /** Pergunta à listagem a cada 5 s até a linha da busca fechar. */
+  async function acompanharBusca(alvoId: string) {
+    const LIMITE_DE_TENTATIVAS = 48 // 4 min a cada 5 s
+    try {
+      for (let i = 0; i < LIMITE_DE_TENTATIVAS; i += 1) {
+        await new Promise((r) => setTimeout(r, 5000))
+        const { data } = await api.get<RespostaPessoas>(
+          `${BASE}/estabelecimentos/${alvoId}/pessoas`,
+        )
+        setDados(data)
+        const u = data.ultimaBusca
+        if (!u || u.status === 'running') continue
+
+        if (u.status === 'failed') {
+          toast.error(`A busca falhou: ${u.erro ?? 'sem motivo registrado'}`, { duration: 12000 })
+        } else {
+          toast.success(
+            u.novas > 0
+              ? `${u.novas} pessoa(s) nova(s).`
+              : 'Nenhuma pessoa nova encontrada em fonte pública.',
+            {
+              duration: 12000,
+              description:
+                `${u.encontradas} encontrada(s) · ${u.duplicadas} já tinha(m)` +
+                (u.naoVerificadas > 0
+                  ? ` · ${u.naoVerificadas} aguardam você conferir a fonte`
+                  : '') +
+                ` · custo ${formatarUsd(u.custoUsd)}`,
+            },
+          )
+        }
+        onMudou()
+        return
+      }
+      toast.warning(
+        'A busca passou de 4 minutos. Reabra esta janela para ver como ela terminou.',
+        { duration: 12000 },
+      )
     } finally {
       setBuscando(false)
     }
@@ -210,16 +269,22 @@ export function PessoasDialog({
               {buscando
                 ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 : <Search className="h-4 w-4 mr-2" />}
-              Buscar
+              {buscando ? `Buscando… ${segundosDeEspera}s` : 'Buscar'}
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
             Procura no site do estabelecimento, em notícias, sites de associações e perfis
             públicos indexados. Cada busca gasta uma consulta paga — o custo aparece
-            abaixo. O texto do prompt é editável na aba{' '}
+            abaixo — e leva cerca de um minuto; o trabalho roda no servidor, então esta
+            janela pode ser fechada. O texto do prompt é editável na aba{' '}
             <strong>Prompts</strong>.
           </p>
-          {ultima && (
+          {ultima?.status === 'running' ? (
+            <p className="text-xs text-amber-600">
+              Busca em andamento desde {formatarData(ultima.startedAt)}. O resultado
+              aparece aqui quando ela fechar — leva cerca de um minuto.
+            </p>
+          ) : ultima ? (
             <p className="text-xs text-muted-foreground">
               Última busca: {ultima.encontradas} encontrada(s) · {ultima.novas} nova(s) ·{' '}
               {ultima.duplicadas} já tinha(m) ·{' '}
@@ -227,7 +292,7 @@ export function PessoasDialog({
               {formatarUsd(ultima.custoUsd)}
               {ultima.erro ? ` · ${ultima.erro}` : ''}
             </p>
-          )}
+          ) : null}
         </div>
 
         {/* ── Lista ────────────────────────────────────────────────────────── */}
