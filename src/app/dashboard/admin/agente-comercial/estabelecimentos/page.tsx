@@ -38,8 +38,8 @@ import { api } from '@/lib/api'
 import {
   AJUDA_CASAMENTO, BASE, CLASSE_MONITORAMENTO, PAGINA, ROTULO_MONITORAMENTO, formatarCnpj,
   formatarDataCurta, formatarUsd, mensagemErro,
-  type Estabelecimento, type Paginado, type Resumo, type StatusCasamento,
-  type StatusMonitoramento,
+  type Estabelecimento, type HistoricoEnriquecimento, type Paginado, type Resumo,
+  type StatusCasamento, type StatusMonitoramento,
 } from '../_lib'
 import { NavAgente } from '../_nav'
 import { PessoasDialog } from '../_pessoas'
@@ -101,6 +101,8 @@ export default function EstabelecimentosPage() {
   const [enriquecendo, setEnriquecendo] = useState<Estabelecimento | null>(null)
   const [comSnovio, setComSnovio] = useState(false)
   const [rodandoEnriquecimento, setRodandoEnriquecimento] = useState(false)
+  /** Segundos desde que a busca começou; a espera é longa e o silêncio assusta. */
+  const [segundosDeEspera, setSegundosDeEspera] = useState(0)
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -150,6 +152,14 @@ export default function EstabelecimentosPage() {
   useEffect(() => {
     carregarResumo()
   }, [carregarResumo])
+
+  // O cronômetro da espera. Medido: 78,8 s de média e 138 s no pior caso — sem um
+  // número andando na tela, qualquer coisa acima de 20 s parece travamento.
+  useEffect(() => {
+    if (!rodandoEnriquecimento) return
+    const t = setInterval(() => setSegundosDeEspera((v) => v + 1), 1000)
+    return () => clearInterval(t)
+  }, [rodandoEnriquecimento])
 
   // ── Ficha do Cadastur ──────────────────────────────────────────────────────
   //
@@ -258,26 +268,86 @@ export default function EstabelecimentosPage() {
   }
 
   /**
-   * Enriquecimento sob demanda, síncrono — como a busca de pessoas. Pode levar perto de
-   * um minuto e meio: a busca institucional mediu ~83 s de média, e a varredura do
-   * Snov.io soma o tempo das páginas.
+   * Enriquecimento sob demanda.
+   *
+   * O POST responde **202 na hora** e o trabalho segue no servidor: o roteador do
+   * Heroku corta qualquer requisição em 30 s, e a busca institucional leva 78,8 s de
+   * média (medido em 135 execuções; a mais rápida levou 39 s). Enquanto a tela
+   * esperava a resposta, o que chegava era 503 — "não foi possível enriquecer" — com o
+   * dado já gravado no cadastro. Era a tela mentindo sobre um trabalho que deu certo.
+   *
+   * Quem acompanha é o histórico de enriquecimentos: a linha nasce `running` e fecha
+   * `success`/`failed`/`skipped`. A tela pergunta a cada 5 s até não haver mais linha
+   * aberta, e desiste depois de 4 min — acima disso é o dyno que morreu, não a busca
+   * que demora.
    */
   async function enriquecer() {
     const alvo = enriquecendo
     if (!alvo) return
+    setSegundosDeEspera(0)
     setRodandoEnriquecimento(true)
     try {
       const { data } = await api.post<{ message: string }>(
         `${BASE}/estabelecimentos/${alvo.id}/enriquecer`,
         { snovio: comSnovio },
       )
-      toast.success(`${alvo.name}: ${data.message}`, { duration: 10000 })
-      setEnriquecendo(null)
-      setComSnovio(false)
-      carregar()
-      carregarResumo()
+      toast.info(data.message)
+      await acompanharEnriquecimento(alvo)
     } catch (err) {
-      toast.error(mensagemErro(err, 'Não foi possível enriquecer.'))
+      toast.error(mensagemErro(err, 'Não foi possível iniciar a busca.'))
+      setRodandoEnriquecimento(false)
+    }
+  }
+
+  /** Pergunta ao histórico até a linha fechar, e conta o que aconteceu. */
+  async function acompanharEnriquecimento(alvo: Estabelecimento) {
+    const LIMITE_DE_TENTATIVAS = 48 // 4 min a cada 5 s
+    try {
+      for (let i = 0; i < LIMITE_DE_TENTATIVAS; i += 1) {
+        await new Promise((r) => setTimeout(r, 5000))
+        const { data } = await api.get<HistoricoEnriquecimento>(
+          `${BASE}/estabelecimentos/${alvo.id}/enriquecimentos`,
+        )
+        if (data.items.some((x) => x.status === 'running')) continue
+
+        const web = data.items.find((x) => x.kind === 'institucional')
+        const snov = data.items.find((x) => x.provider === 'snovio')
+        const partes: string[] = []
+        if (web) {
+          partes.push(
+            web.status === 'success'
+              ? `${web.camposPreenchidos} campo(s) preenchido(s), ${web.sugestoes} sugestão(ões)` +
+                  `${web.custoUsd ? ` · ${formatarUsd(web.custoUsd)}` : ''}`
+              : `busca web ${web.status}${web.erro ? `: ${web.erro}` : ''}`,
+          )
+        }
+        if (comSnovio && snov) {
+          partes.push(
+            snov.status === 'success'
+              ? `Snov.io: ${snov.pessoas} pessoa(s), ${snov.emailsRevelados} e-mail(s), ` +
+                  `${snov.creditos} crédito(s)`
+              : `Snov.io ${snov.status}${snov.motivo ? `: ${snov.motivo}` : ''}`,
+          )
+        }
+
+        const deuCerto = web?.status === 'success'
+        const texto = `${alvo.name}: ${partes.join(' · ') || 'nada novo'}`
+        if (deuCerto) toast.success(texto, { duration: 12000 })
+        else toast.warning(texto, { duration: 12000 })
+
+        setEnriquecendo(null)
+        setComSnovio(false)
+        carregar()
+        carregarResumo()
+        return
+      }
+      toast.warning(
+        `${alvo.name}: a busca passou de 4 minutos. O histórico do estabelecimento ` +
+          `mostra como ela terminou.`,
+        { duration: 12000 },
+      )
+      setEnriquecendo(null)
+      carregar()
     } finally {
       setRodandoEnriquecimento(false)
     }
@@ -825,7 +895,7 @@ export default function EstabelecimentosPage() {
           saber quanto custa antes, não depois. */}
       <Dialog
         open={!!enriquecendo}
-        onOpenChange={(ab) => { if (!ab && !rodandoEnriquecimento) setEnriquecendo(null) }}
+        onOpenChange={(ab) => { if (!ab) setEnriquecendo(null) }}
       >
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
@@ -839,8 +909,10 @@ export default function EstabelecimentosPage() {
 
           <div className="space-y-4 text-sm">
             <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
-              Custa uma busca web paga — {formatarUsd('0.16')} na média de 116 execuções
-              reais — e leva perto de um minuto e meio. A tela fica esperando.
+              Custa uma busca web paga — {formatarUsd('0.16')} na média de 135 execuções
+              reais — e leva <strong>de 40 s a 2 min</strong> (média de 79 s). O trabalho
+              roda no servidor: esta janela pode ser fechada, e o resultado fica no
+              histórico do estabelecimento.
             </div>
 
             <label className="flex items-start gap-2">
@@ -872,13 +944,15 @@ export default function EstabelecimentosPage() {
             <Button
               variant="outline"
               onClick={() => setEnriquecendo(null)}
-              disabled={rodandoEnriquecimento}
             >
-              Cancelar
+              {/* Fechar não cancela nada: o trabalho já está rodando no servidor. */}
+              {rodandoEnriquecimento ? 'Fechar' : 'Cancelar'}
             </Button>
             <Button onClick={enriquecer} disabled={rodandoEnriquecimento}>
               {rodandoEnriquecimento && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              {rodandoEnriquecimento ? 'Procurando…' : 'Procurar agora'}
+              {rodandoEnriquecimento
+                ? `Procurando… ${segundosDeEspera}s`
+                : 'Procurar agora'}
             </Button>
           </DialogFooter>
         </DialogContent>
