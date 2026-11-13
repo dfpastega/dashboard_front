@@ -235,6 +235,42 @@ export default function ExecucoesPage() {
                   </div>
                 )}
 
+                {/* O enriquecimento roda DEPOIS das buscas, no mesmo ciclo. Aparece
+                    separado porque é outro gasto, com outra unidade: dólar na busca
+                    web, crédito no Snov.io. */}
+                {detalhe.details?.enriquecimento && (
+                  <div className="space-y-1">
+                    <h3 className="text-sm font-medium">Enriquecimento</h3>
+                    <div className="rounded-md border px-4 py-3 text-sm">
+                      <div>
+                        {detalhe.details.enriquecimento.web.processados} estabelecimento(s) ·{' '}
+                        {detalhe.details.enriquecimento.web.comDados} com dado novo ·{' '}
+                        {detalhe.details.enriquecimento.web.sugestoes} sugestão(ões) ·{' '}
+                        {formatarUsd(detalhe.details.enriquecimento.web.custoUsd)}
+                      </div>
+                      {detalhe.details.enriquecimento.snovio ? (
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          Snov.io: {detalhe.details.enriquecimento.snovio.varreduras} varredura(s) ·{' '}
+                          {detalhe.details.enriquecimento.snovio.pessoasNovas} pessoa(s) ·{' '}
+                          {detalhe.details.enriquecimento.snovio.emailsRevelados} e-mail(s) ·{' '}
+                          {detalhe.details.enriquecimento.snovio.creditos} crédito(s)
+                        </div>
+                      ) : detalhe.details.enriquecimento.snovioMotivo ? (
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          {detalhe.details.enriquecimento.snovioMotivo}
+                        </div>
+                      ) : null}
+                      {(detalhe.details.enriquecimento.linhas ?? []).length > 0 && (
+                        <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
+                          {detalhe.details.enriquecimento.linhas!.map((l, i) => (
+                            <li key={i} className="break-words">{l}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {(detalhe.details?.buscas ?? []).length === 0 ? (
                   <p className="text-sm text-muted-foreground">
                     Nenhuma busca foi executada neste ciclo. Verifique se há buscas de

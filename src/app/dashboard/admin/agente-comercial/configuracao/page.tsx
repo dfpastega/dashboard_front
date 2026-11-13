@@ -63,6 +63,9 @@ export default function ConfiguracaoPage() {
   const [horaAviso, setHoraAviso] = useState('9')
   const [destinatarios, setDestinatarios] = useState<string[]>([])
   const [novoEmail, setNovoEmail] = useState('')
+  /** Fase 4: quantos estabelecimentos o ciclo enriquece, e se pode gastar crédito. */
+  const [maxEnriquecimentos, setMaxEnriquecimentos] = useState('5')
+  const [snovioLigado, setSnovioLigado] = useState(false)
 
   // Dialog de busca
   const [editandoBusca, setEditandoBusca] = useState<Busca | null>(null)
@@ -91,6 +94,8 @@ export default function ConfiguracaoPage() {
       setDiaAviso(String(cfg.data.digestWeekday ?? 1))
       setHoraAviso(String(cfg.data.digestHour ?? 9))
       setDestinatarios(cfg.data.digestRecipients ?? [])
+      setMaxEnriquecimentos(String(cfg.data.maxEnrichmentsPerCycle ?? 5))
+      setSnovioLigado(cfg.data.snovioEnabled ?? false)
     } catch (err) {
       setErro(mensagemErro(err, 'Não foi possível carregar a configuração.'))
     } finally {
@@ -106,7 +111,12 @@ export default function ConfiguracaoPage() {
     const nBuscas = Number(maxBuscas)
     const nAchados = Number(maxAchados)
     const nCooldown = Number(cooldown)
+    const nEnriquecimentos = Number(maxEnriquecimentos)
 
+    if (!Number.isInteger(nEnriquecimentos) || nEnriquecimentos < 0 || nEnriquecimentos > 20) {
+      toast.error('Enriquecimentos por ciclo: use um número de 0 a 20.')
+      return
+    }
     if (!Number.isInteger(nBuscas) || nBuscas < 1 || nBuscas > 100) {
       toast.error('Buscas por ciclo: use um número de 1 a 100.')
       return
@@ -134,6 +144,8 @@ export default function ConfiguracaoPage() {
         digestMode: modoAviso,
         digestWeekday: Number(diaAviso),
         digestHour: Number(horaAviso),
+        maxEnrichmentsPerCycle: nEnriquecimentos,
+        snovioEnabled: snovioLigado,
       })
       setConfig(data.config)
       toast.success('Configuração salva.')
@@ -381,6 +393,49 @@ export default function ConfiguracaoPage() {
                   />
                   <p className="text-xs text-muted-foreground">
                     Vale a partir da fase de envio. Antes disso, serve de aviso na revisão.
+                  </p>
+                </div>
+
+                {/* Enriquecimento no ciclo (Fase 4). Fica aqui, junto dos outros tetos,
+                    porque é a mesma decisão: quanto o ciclo pode gastar sozinho. */}
+                <div className="space-y-2">
+                  <Label htmlFor="max-enriq">Estabelecimentos enriquecidos por ciclo</Label>
+                  <Input
+                    id="max-enriq"
+                    type="number" min={0} max={20}
+                    value={maxEnriquecimentos}
+                    onChange={(e) => setMaxEnriquecimentos(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Depois das buscas, o ciclo procura site, e-mail, telefone e endereço
+                    dos que estão sem dado — primeiro quem tem reclamação conferida e
+                    ninguém para quem escrever. Medido: <strong>US$ 0,16</strong> por
+                    estabelecimento em 116 execuções reais. <strong>0 desliga</strong> a etapa.
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="snovio">Procurar decisores no Snov.io</Label>
+                  <div className="flex items-center gap-3">
+                    <Switch
+                      id="snovio"
+                      checked={snovioLigado}
+                      onCheckedChange={setSnovioLigado}
+                      disabled={config?.snovioConfigurado === false}
+                    />
+                    <span className="text-sm text-muted-foreground">
+                      {snovioLigado ? 'o ciclo pode gastar crédito' : 'desligado'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Nome, cargo e e-mail de quem decide treinamento, por domínio. Gasta
+                    crédito pré-pago: ~11 por varredura e 1 por e-mail revelado.
+                    {config?.snovioConfigurado === false && (
+                      <span className="text-amber-600">
+                        {' '}As credenciais do Snov.io não estão no servidor — sem elas
+                        este botão não tem efeito.
+                      </span>
+                    )}
                   </p>
                 </div>
               </div>

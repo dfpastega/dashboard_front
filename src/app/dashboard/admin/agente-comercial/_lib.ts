@@ -51,6 +51,30 @@ export interface Achado {
   emailSubject: string | null
   emailBody: string | null
   emailStatus: 'draft' | 'sent' | 'failed' | null
+  /**
+   * As pessoas deste hotel que têm e-mail, decisor primeiro e caixa confirmada antes
+   * da só encontrada. É para QUEM escrever — o `contactEmail` acima é em geral um
+   * `reservas@` que não decide treinamento.
+   *
+   * Opcional porque servidor antigo não manda o campo: a janela entre o deploy do
+   * backend e o do frontend não pode deixar a tela em branco.
+   */
+  pessoasComEmail?: DestinatarioPossivel[]
+}
+
+/** Uma pessoa com e-mail, do jeito que a fila de revisão precisa dela. */
+export interface DestinatarioPossivel {
+  id: string
+  fullName: string
+  role: string | null
+  email: string
+  emailStatus: StatusEmailPessoa
+  /** O julgamento sobre decidir treinamento; 'duvida' é o padrão honesto. */
+  decisor: 'sim' | 'nao' | 'duvida'
+  origin: OrigemPessoa
+  sourceUrl: string | null
+  /** false quando o endereço é de outro domínio — outra empresa, provavelmente. */
+  emailDomainMatches: boolean | null
 }
 
 export interface Estabelecimento {
@@ -137,6 +161,15 @@ export interface Config {
   maxFindingsPerCycle: number
   emailCooldownDays: number
   openaiModel: string
+  /**
+   * Os dois controles de gasto do enriquecimento no ciclo. `0` em
+   * `maxEnrichmentsPerCycle` desliga a etapa; `snovioEnabled` é a trava dos créditos.
+   * Opcionais porque servidor antigo não manda os campos.
+   */
+  maxEnrichmentsPerCycle?: number
+  snovioEnabled?: boolean
+  /** Só diz se as credenciais do Snov.io existem no servidor — nunca o valor. */
+  snovioConfigurado?: boolean
   lastRunAt: string | null
   forceRunRequestedAt: string | null
   nextRunAt: string | null
@@ -227,8 +260,37 @@ export interface DetalheBusca {
   erro?: string
 }
 
+/**
+ * O que o enriquecimento fez no ciclo. O custo NÃO entra no `estimatedCostUsd` da
+ * execução: cada tentativa grava o próprio custo, e somar nos dois lugares contaria o
+ * mesmo dólar duas vezes no custo do mês.
+ */
+export interface DetalheEnriquecimento {
+  web: {
+    processados: number
+    comDados: number
+    sugestoes: number
+    falhas: number
+    custoUsd: string
+  }
+  snovio: {
+    varreduras: number
+    pessoasNovas: number
+    emailsRevelados: number
+    creditos: number
+    falhas: number
+  } | null
+  /** Por que o Snov.io não rodou: desligado na configuração, fila vazia. */
+  snovioMotivo?: string
+  linhas?: string[]
+}
+
 export interface ExecucaoDetalhada extends Execucao {
-  details: { buscas?: DetalheBusca[]; errors?: string[] }
+  details: {
+    buscas?: DetalheBusca[]
+    errors?: string[]
+    enriquecimento?: DetalheEnriquecimento
+  }
 }
 
 export interface Resumo {
@@ -257,6 +319,14 @@ export interface Resumo {
     estimatedCostUsd: string | null
   } | null
   custoMesUsd: string
+  /**
+   * Créditos do Snov.io gastos no mês. Não entram no custo em dólar de propósito: o
+   * pacote é pré-pago, e converter crédito em dólar inventaria um preço unitário que
+   * a fatura não tem.
+   */
+  creditosMes?: number
+  /** Sugestões de dado esperando decisão humana. É o número do selo da aba. */
+  sugestoesPendentes?: number
 }
 
 export const BASE = '/api/agente-comercial/admin'
@@ -659,4 +729,156 @@ export function formatarCnpj(cnpj: string | null): string {
   const d = cnpj.replace(/\D/g, '')
   if (d.length !== 14) return cnpj
   return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12)}`
+}
+
+// ---------------------------------------------------------------------------
+// Sugestões de dado (Fase 4)
+// ---------------------------------------------------------------------------
+
+/**
+ * O enriquecimento NUNCA sobrescreve. Quando a busca web acha um dado diferente do que
+ * está no cadastro — ou um dado que a coluna não aceita, como dois telefones na mesma
+ * string — nasce uma sugestão: o valor, a URL e o trecho literal que o sustentam,
+ * esperando uma decisão de gente. A rodada dos 101 estabelecimentos deixou 232 delas.
+ */
+export type CampoSugestao =
+  | 'website'
+  | 'email_domain'
+  | 'contact_email'
+  | 'contact_phone'
+  | 'contact_name'
+  | 'cnpj'
+  | 'city'
+  | 'state'
+  | 'address'
+
+export type StatusSugestao = 'pending' | 'accepted' | 'discarded' | 'superseded'
+
+export interface Sugestao {
+  id: string
+  establishmentId: string
+  establishmentName: string
+  establishmentCity: string | null
+  establishmentState: string | null
+  field: CampoSugestao
+  suggestedValue: string
+  /** O que estava no cadastro quando a sugestão nasceu. */
+  currentValue: string | null
+  /** O que está no cadastro AGORA — pode ter mudado depois. */
+  valorNoCadastro: string | null
+  /** true quando alguém mexeu no campo depois da busca: aceitar apagaria essa correção. */
+  cadastroMudou: boolean
+  provider: 'openai' | 'snovio' | 'cadastur' | 'receita' | 'manual'
+  sourceUrl: string | null
+  sourceExcerpt: string | null
+  status: StatusSugestao
+  createdAt: string
+  decidedAt: string | null
+}
+
+export interface ResumoSugestoes {
+  pendentes: number
+  estabelecimentos: number
+  porCampo: Array<{ campo: CampoSugestao; total: number }>
+}
+
+export const ROTULO_CAMPO: Record<CampoSugestao, string> = {
+  website: 'site',
+  email_domain: 'domínio de e-mail',
+  contact_email: 'e-mail',
+  contact_phone: 'telefone',
+  contact_name: 'contato',
+  cnpj: 'CNPJ',
+  city: 'cidade',
+  state: 'UF',
+  address: 'endereço',
+}
+
+/**
+ * O que aceitar cada campo FAZ — não o que ele é. Dois têm consequência que não se
+ * adivinha olhando a tela, e são justamente os dois mais numerosos na fila.
+ */
+export const AJUDA_CAMPO: Partial<Record<CampoSugestao, string>> = {
+  cnpj:
+    'Aceitar vincula a ficha do Cadastur deste CNPJ, e a ficha traz e-mail, telefone e ' +
+    'responsável oficiais. Ficha errada põe o contato de outra empresa numa mensagem ' +
+    'comercial — confira o nome antes.',
+  contact_email:
+    'O domínio deste e-mail é o que a busca de decisores consulta. Se a fonte traz ' +
+    'vários endereços, escolha um: uma lista aqui quebra a busca por domínio.',
+  address:
+    'O endereço ganhou coluna na migration 47. As 100 sugestões da primeira rodada ' +
+    'estavam presas aqui justamente por não ter onde ser gravadas.',
+}
+
+export const ROTULO_PROVEDOR: Record<Sugestao['provider'], string> = {
+  openai: 'busca web',
+  snovio: 'Snov.io',
+  cadastur: 'Cadastur',
+  receita: 'Receita',
+  manual: 'decisão humana',
+}
+
+export const ROTULO_STATUS_SUGESTAO: Record<StatusSugestao, string> = {
+  pending: 'esperando decisão',
+  accepted: 'aceita',
+  discarded: 'descartada',
+  superseded: 'substituída',
+}
+
+export const CLASSE_STATUS_SUGESTAO: Record<StatusSugestao, string> = {
+  pending: 'bg-amber-500/15 text-amber-600',
+  accepted: 'bg-emerald-500/15 text-emerald-600',
+  discarded: 'bg-muted text-muted-foreground',
+  superseded: 'bg-sky-500/15 text-sky-600',
+}
+
+// ---------------------------------------------------------------------------
+// Histórico de enriquecimento
+// ---------------------------------------------------------------------------
+
+/** Uma tentativa de enriquecimento, com o que ela custou — inclusive a que falhou. */
+export interface Enriquecimento {
+  id: string
+  kind: 'institucional' | 'cadastur' | 'pessoas' | 'snovio_dominio' | 'snovio_perfis' | 'snovio_email'
+  provider: 'openai' | 'snovio' | 'cadastur' | 'manual'
+  trigger: 'auto' | 'manual'
+  status: 'running' | 'success' | 'failed' | 'skipped'
+  erro: string | null
+  inputTokens: string | number
+  outputTokens: string | number
+  buscasWeb: number
+  creditos: number
+  custoUsd: string | null
+  camposPreenchidos: number
+  sugestoes: number
+  pessoas: number
+  emailsRevelados: number
+  startedAt: string
+  finishedAt: string | null
+  /** Por que foi pulado: domínio de rede, domínio compartilhado, provedor público. */
+  motivo: string | null
+}
+
+export interface HistoricoEnriquecimento {
+  items: Enriquecimento[]
+  totalCustoUsd: string
+  totalCreditos: number
+  tentativas: number
+}
+
+export const ROTULO_ENRIQUECIMENTO: Record<Enriquecimento['kind'], string> = {
+  institucional: 'dados na internet',
+  cadastur: 'ficha do Cadastur',
+  pessoas: 'busca de pessoas',
+  snovio_dominio: 'empresa no Snov.io',
+  snovio_perfis: 'decisores no Snov.io',
+  snovio_email: 'e-mail revelado',
+}
+
+export const CLASSE_ENRIQUECIMENTO: Record<Enriquecimento['status'], string> = {
+  running: 'bg-sky-500/15 text-sky-600',
+  success: 'bg-emerald-500/15 text-emerald-600',
+  failed: 'bg-red-500/15 text-red-600',
+  skipped: 'bg-muted text-muted-foreground',
 }

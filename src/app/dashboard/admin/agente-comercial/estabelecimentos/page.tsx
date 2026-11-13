@@ -31,12 +31,13 @@ import {
 } from '@/components/ui/dialog'
 import {
   AlertCircle, ChevronLeft, ChevronRight, ExternalLink, Link2, Loader2, Plus, RefreshCw, Unlink,
-  Search, Users,
+  Search, Sparkles, Users,
 } from 'lucide-react'
+import { Checkbox } from '@/components/ui/checkbox'
 import { api } from '@/lib/api'
 import {
-  AJUDA_CASAMENTO, BASE, CLASSE_MONITORAMENTO, ROTULO_MONITORAMENTO, formatarCnpj,
-  formatarDataCurta, mensagemErro,
+  AJUDA_CASAMENTO, BASE, CLASSE_MONITORAMENTO, PAGINA, ROTULO_MONITORAMENTO, formatarCnpj,
+  formatarDataCurta, formatarUsd, mensagemErro,
   type Estabelecimento, type Paginado, type Resumo, type StatusCasamento,
   type StatusMonitoramento,
 } from '../_lib'
@@ -92,6 +93,14 @@ export default function EstabelecimentosPage() {
   /** Qual linha está mexendo na ficha do Cadastur agora. */
   const [casando, setCasando] = useState<string | null>(null)
   const [cnpjManual, setCnpjManual] = useState('')
+  /**
+   * O enriquecimento sob demanda. Tem dialog próprio porque GASTA: busca web sempre
+   * (US$ 0,16 na média de 116 execuções) e créditos do Snov.io quando a varredura é
+   * marcada. Botão que gasta dinheiro não dispara no primeiro clique.
+   */
+  const [enriquecendo, setEnriquecendo] = useState<Estabelecimento | null>(null)
+  const [comSnovio, setComSnovio] = useState(false)
+  const [rodandoEnriquecimento, setRodandoEnriquecimento] = useState(false)
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -248,6 +257,32 @@ export default function EstabelecimentosPage() {
     }
   }
 
+  /**
+   * Enriquecimento sob demanda, síncrono — como a busca de pessoas. Pode levar perto de
+   * um minuto e meio: a busca institucional mediu ~83 s de média, e a varredura do
+   * Snov.io soma o tempo das páginas.
+   */
+  async function enriquecer() {
+    const alvo = enriquecendo
+    if (!alvo) return
+    setRodandoEnriquecimento(true)
+    try {
+      const { data } = await api.post<{ message: string }>(
+        `${BASE}/estabelecimentos/${alvo.id}/enriquecer`,
+        { snovio: comSnovio },
+      )
+      toast.success(`${alvo.name}: ${data.message}`, { duration: 10000 })
+      setEnriquecendo(null)
+      setComSnovio(false)
+      carregar()
+      carregarResumo()
+    } catch (err) {
+      toast.error(mensagemErro(err, 'Não foi possível enriquecer.'))
+    } finally {
+      setRodandoEnriquecimento(false)
+    }
+  }
+
   function abrirEdicao(e: Estabelecimento) {
     setCnpjManual('')
     setEditando(e)
@@ -343,6 +378,15 @@ export default function EstabelecimentosPage() {
                   {resumo.pessoas.naoConfirmadas} aguardando conferência na fonte
                 </span>
               )}
+            </p>
+          ) : null}
+          {/* A fila de sugestões não pode ficar escondida atrás de uma aba sem número:
+              a primeira rodada deixou 232 linhas pagas esperando decisão. */}
+          {resumo?.sugestoesPendentes ? (
+            <p className="text-sm">
+              <a href={`${PAGINA}/sugestoes`} className="text-amber-600 hover:underline">
+                {resumo.sugestoesPendentes} sugestão(ões) de dado esperando decisão
+              </a>
             </p>
           ) : null}
         </div>
@@ -564,6 +608,13 @@ export default function EstabelecimentosPage() {
                                 Cadastur
                               </Button>
                             )}
+                            <Button
+                              variant="ghost" size="sm"
+                              onClick={() => { setComSnovio(false); setEnriquecendo(e) }}
+                              title="Procurar site, e-mail, telefone e endereço na internet. Gasta busca paga."
+                            >
+                              <Sparkles className="h-4 w-4 mr-1" />Enriquecer
+                            </Button>
                             <Button variant="ghost" size="sm" onClick={() => setVendoPessoas(e)}>
                               <Users className="h-4 w-4 mr-1" />Pessoas
                             </Button>
@@ -763,6 +814,71 @@ export default function EstabelecimentosPage() {
             <Button onClick={salvar} disabled={salvando}>
               {salvando && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Dialog: enriquecer agora ───────────────────────────────────────
+          Confirmação por causa do custo, e com o número medido à vista: botão que
+          gasta dinheiro não dispara no primeiro clique, e quem clica tem direito de
+          saber quanto custa antes, não depois. */}
+      <Dialog
+        open={!!enriquecendo}
+        onOpenChange={(ab) => { if (!ab && !rodandoEnriquecimento) setEnriquecendo(null) }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Enriquecer {enriquecendo?.name}</DialogTitle>
+            <DialogDescription>
+              Procura site, domínio de e-mail, telefone, endereço e CNPJ em fonte pública,
+              e grava só o que estiver vazio. Divergência não sobrescreve: vira sugestão
+              com a fonte ao lado.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 text-sm">
+            <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+              Custa uma busca web paga — {formatarUsd('0.16')} na média de 116 execuções
+              reais — e leva perto de um minuto e meio. A tela fica esperando.
+            </div>
+
+            <label className="flex items-start gap-2">
+              <Checkbox
+                checked={comSnovio}
+                onCheckedChange={(v) => setComSnovio(v === true)}
+                disabled={rodandoEnriquecimento}
+                className="mt-0.5"
+              />
+              <span>
+                <span className="font-medium">Procurar decisores no Snov.io também</span>
+                <span className="block text-xs text-muted-foreground">
+                  Nome, cargo e e-mail de quem decide treinamento. Gasta crédito: ~11 por
+                  varredura, mais 1 por e-mail revelado. Só roda com domínio de e-mail
+                  próprio — domínio de rede e provedor público são pulados antes de pagar.
+                </span>
+              </span>
+            </label>
+
+            {enriquecendo && !enriquecendo.contactEmail && (
+              <p className="text-xs text-muted-foreground">
+                Este estabelecimento não tem e-mail: se a busca achar um, o domínio sai
+                dele — é o que destrava a busca de decisores.
+              </p>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setEnriquecendo(null)}
+              disabled={rodandoEnriquecimento}
+            >
+              Cancelar
+            </Button>
+            <Button onClick={enriquecer} disabled={rodandoEnriquecimento}>
+              {rodandoEnriquecimento && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {rodandoEnriquecimento ? 'Procurando…' : 'Procurar agora'}
             </Button>
           </DialogFooter>
         </DialogContent>

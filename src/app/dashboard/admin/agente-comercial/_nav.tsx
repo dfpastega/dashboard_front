@@ -17,6 +17,7 @@ const ABAS = [
   { href: PAGINA, rotulo: 'Achados' },
   { href: `${PAGINA}/cadastur`, rotulo: 'Cadastur' },
   { href: `${PAGINA}/estabelecimentos`, rotulo: 'Estabelecimentos' },
+  { href: `${PAGINA}/sugestoes`, rotulo: 'Sugestões' },
   { href: `${PAGINA}/execucoes`, rotulo: 'Execuções' },
   { href: `${PAGINA}/configuracao`, rotulo: 'Configuração' },
   { href: `${PAGINA}/prompts`, rotulo: 'Prompts' },

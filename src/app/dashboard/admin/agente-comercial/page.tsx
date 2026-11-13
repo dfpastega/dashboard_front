@@ -31,16 +31,36 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
 import {
-  AlertCircle, Check, ChevronLeft, ChevronRight, ExternalLink, Loader2, Play, RefreshCw,
-  Search, ShieldAlert, ShieldCheck, X,
+  AlertCircle, Check, ChevronLeft, ChevronRight, Copy, ExternalLink, Loader2, Play,
+  RefreshCw, Search, ShieldAlert, ShieldCheck, X,
 } from 'lucide-react'
 import { api } from '@/lib/api'
 import {
-  AJUDA_VERIFICACAO, BASE, CLASSE_STATUS, CLASSE_VERIFICACAO, PAGINA, ROTULO_STATUS,
-  ROTULO_VERIFICACAO, formatarData, formatarDataCurta, formatarUsd,
+  AJUDA_EMAIL_PESSOA, AJUDA_VERIFICACAO, BASE, CLASSE_STATUS, CLASSE_VERIFICACAO, PAGINA,
+  ROTULO_STATUS, ROTULO_VERIFICACAO, formatarData, formatarDataCurta, formatarUsd,
   mensagemErro, type Achado, type Config, type Paginado, type Resumo,
 } from './_lib'
 import { NavAgente } from './_nav'
+
+/**
+ * Copia para a área de transferência.
+ *
+ * Existe porque o envio é ação humana e vai continuar sendo: ninguém dispara e-mail
+ * daqui. Quem aprova leva o endereço, o assunto e o corpo para o próprio cliente de
+ * e-mail, e sem isto esse transporte é seleção de texto à mão — onde se perde um
+ * caractere do endereço e a mensagem volta.
+ *
+ * `navigator.clipboard` exige contexto seguro (https ou localhost); fora dele, o
+ * toast diz o que aconteceu em vez de falhar calado.
+ */
+async function copiar(texto: string, oque: string) {
+  try {
+    await navigator.clipboard.writeText(texto)
+    toast.success(`${oque} copiado.`)
+  } catch {
+    toast.error(`Não foi possível copiar — selecione e copie à mão.`)
+  }
+}
 
 const FILTROS = [
   { valor: 'pending', rotulo: 'Pendentes' },
@@ -684,6 +704,85 @@ export default function AgenteComercialPage() {
                   </div>
                 </div>
 
+                {/* Para quem escrever.
+                    O contato acima é quase sempre um `reservas@` que não decide
+                    treinamento. Estas são as pessoas que a varredura de decisores
+                    achou no domínio do próprio hotel, com nome, cargo e caixa testada
+                    — e nenhuma delas aparecia nesta tela, que é onde a decisão de
+                    escrever acontece. */}
+                {aberto.pessoasComEmail && aberto.pessoasComEmail.length > 0 && (
+                  <div className="space-y-2">
+                    <Label>Para quem escrever</Label>
+                    <div className="divide-y rounded-md border text-sm">
+                      {aberto.pessoasComEmail.map((p) => (
+                        <div
+                          key={p.id}
+                          className="flex flex-wrap items-start justify-between gap-2 px-4 py-3"
+                        >
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-medium">{p.fullName}</span>
+                              {p.decisor === 'sim' && (
+                                <Badge variant="outline" className="bg-violet-500/15 text-violet-600">
+                                  decide treinamento
+                                </Badge>
+                              )}
+                              <Badge
+                                variant="outline"
+                                className={
+                                  p.emailStatus === 'verified'
+                                    ? 'bg-emerald-500/15 text-emerald-600'
+                                    : p.emailStatus === 'invalid'
+                                      ? 'bg-red-500/15 text-red-600'
+                                      : 'bg-amber-500/15 text-amber-600'
+                                }
+                                title={AJUDA_EMAIL_PESSOA[p.emailStatus]}
+                              >
+                                {p.emailStatus === 'verified'
+                                  ? 'caixa confirmada'
+                                  : p.emailStatus === 'invalid'
+                                    ? 'reprovado — não envie'
+                                    : 'não validado'}
+                              </Badge>
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {p.role || 'cargo não informado'}
+                            </div>
+                            <div className="break-all">{p.email}</div>
+                            {p.emailDomainMatches === false && (
+                              <div className="text-xs text-amber-600">
+                                O endereço é de outro domínio — pode ser de outra empresa.
+                              </div>
+                            )}
+                            {p.sourceUrl && (
+                              <a
+                                href={p.sourceUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:underline"
+                              >
+                                fonte<ExternalLink className="h-3 w-3" />
+                              </a>
+                            )}
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => copiar(p.email, 'Endereço')}
+                          >
+                            <Copy className="h-4 w-4 mr-1" />Copiar
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      O agente não manda e-mail. Aprovar aqui significa “liberado para
+                      enviar”: quem envia é uma pessoa, do próprio cliente de e-mail, com
+                      o texto e o endereço copiados desta tela.
+                    </p>
+                  </div>
+                )}
+
                 {aberto.status === 'pending' ? (
                   <>
                     <div className="space-y-2">
@@ -705,9 +804,25 @@ export default function AgenteComercialPage() {
                         placeholder="O agente não gerou rascunho para este achado"
                         className="font-mono text-xs"
                       />
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Button
+                          size="sm" variant="outline"
+                          disabled={!assunto.trim()}
+                          onClick={() => copiar(assunto, 'Assunto')}
+                        >
+                          <Copy className="h-4 w-4 mr-1" />Copiar assunto
+                        </Button>
+                        <Button
+                          size="sm" variant="outline"
+                          disabled={!corpo.trim()}
+                          onClick={() => copiar(corpo, 'Rascunho')}
+                        >
+                          <Copy className="h-4 w-4 mr-1" />Copiar rascunho
+                        </Button>
+                      </div>
                       <p className="text-xs text-muted-foreground">
-                        Escrito pelo agente e editável. O link de contato e o rodapé de
-                        identificação são adicionados no envio, não aqui.
+                        Escrito pelo agente e editável. O envio é manual: o que você
+                        copiar daqui é o que vai, com a sua assinatura e o seu remetente.
                       </p>
                     </div>
                     <div className="space-y-2">
@@ -736,11 +851,27 @@ export default function AgenteComercialPage() {
                         <p className="mt-2 text-muted-foreground">Motivo: {aberto.rejectionReason}</p>
                       )}
                       {aberto.emailSubject && (
-                        <div className="mt-3 space-y-1">
+                        <div className="mt-3 space-y-2">
                           <div className="font-medium">{aberto.emailSubject}</div>
                           <p className="whitespace-pre-wrap text-xs text-muted-foreground">
                             {aberto.emailBody}
                           </p>
+                          {aberto.status === 'approved' && (
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Button
+                                size="sm" variant="outline"
+                                onClick={() => copiar(aberto.emailSubject ?? '', 'Assunto')}
+                              >
+                                <Copy className="h-4 w-4 mr-1" />Copiar assunto
+                              </Button>
+                              <Button
+                                size="sm" variant="outline"
+                                onClick={() => copiar(aberto.emailBody ?? '', 'Texto')}
+                              >
+                                <Copy className="h-4 w-4 mr-1" />Copiar texto
+                              </Button>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
